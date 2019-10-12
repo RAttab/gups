@@ -47,7 +47,7 @@ func (r Reviews) Less(i, j int) bool {
 }
 
 type PullRequest struct {
-	Number int64
+	Number int32
 	Title  string
 	Author string
 
@@ -127,7 +127,7 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 	for _, rawPullRequest := range raw.repository.pullRequests.nodes {
 
 		pullRequest := PullRequest{
-			Number: int64(rawPullRequest.number),
+			Number: int32(rawPullRequest.number),
 			Title:  string(rawPullRequest.title),
 			Author: string(rawPullRequest.author.login),
 		}
