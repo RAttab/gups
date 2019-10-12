@@ -63,40 +63,40 @@ type Variables struct {
 }
 
 type query struct {
-	repository struct {
-		pullRequests struct {
-			totalCount githubv4.Int
-			nodes      []struct {
-				number githubv4.Int
-				title  githubv4.String
-				author struct {
-					login githubv4.String
+	Repository struct {
+		PullRequests struct {
+			TotalCount githubv4.Int
+			Nodes      []struct {
+				Number githubv4.Int
+				Title  githubv4.String
+				Author struct {
+					Login githubv4.String
 				}
 
-				labels struct {
-					totalCount githubv4.Int
-					nodes      []struct {
-						name githubv4.String
+				Labels struct {
+					TotalCount githubv4.Int
+					Nodes      []struct {
+						Name githubv4.String
 					}
 				} `graphql:"labels(first: $labelCount)"`
 
-				reviews struct {
-					totalCount githubv4.Int
-					nodes      []struct {
-						state       githubv4.String
-						submittedAt githubv4.DateTime
-						author      struct {
-							login githubv4.String
+				Reviews struct {
+					TotalCount githubv4.Int
+					Nodes      []struct {
+						State       githubv4.String
+						SubmittedAt githubv4.DateTime
+						Author      struct {
+							Login githubv4.String
 						}
 					}
 				} `graphql:"reviews(first: $reviewCount)"`
 
-				reviewRequests struct {
-					totalCount githubv4.Int
-					nodes      []struct {
-						requestedReviewer struct {
-							user struct {
-								login githubv4.String
+				ReviewRequests struct {
+					TotalCount githubv4.Int
+					Nodes      []struct {
+						RequestedReviewer struct {
+							User struct {
+								Login githubv4.String
 							} `graphql:"... on User"`
 						}
 					}
@@ -116,47 +116,49 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 		"reviewReqCount": githubv4.Int(reviewReqCount),
 	}
 
-	bytes, _ := json.Marshal(variables)
-	log.Printf("VARS: %v", string(bytes))
+	{ // DEBUG
+		bytes, _ := json.MarshalIndent(variables, "", "    ")
+		log.Printf("Vars: %v", string(bytes))
+	}
 
 	var raw query
 	if err := client.Query(ctx, &raw, variables); err != nil {
 		return nil, err
 	}
 
-	if count := raw.repository.pullRequests.totalCount; count > prCount {
+	if count := raw.Repository.PullRequests.TotalCount; count > prCount {
 		log.Printf("Truncated PR result for %v/%v (%v > %v)",
 			vars.Owner, vars.Repository, count, prCount)
 	}
 
 	var pullRequests []PullRequest
-	for _, rawPullRequest := range raw.repository.pullRequests.nodes {
+	for _, rawPullRequest := range raw.Repository.PullRequests.Nodes {
 
 		pullRequest := PullRequest{
-			Number: int32(rawPullRequest.number),
-			Title:  string(rawPullRequest.title),
-			Author: string(rawPullRequest.author.login),
+			Number: int32(rawPullRequest.Number),
+			Title:  string(rawPullRequest.Title),
+			Author: string(rawPullRequest.Author.Login),
 		}
 
-		if count := rawPullRequest.labels.totalCount; count > labelCount {
+		if count := rawPullRequest.Labels.TotalCount; count > labelCount {
 			log.Printf("Truncated label result for %v/%v PR %v (%v > %v)",
 				vars.Owner, vars.Repository, pullRequest.Number, count, prCount)
 		}
 
-		for _, rawLabels := range rawPullRequest.labels.nodes {
-			pullRequest.Labels = append(pullRequest.Labels, string(rawLabels.name))
+		for _, rawLabels := range rawPullRequest.Labels.Nodes {
+			pullRequest.Labels = append(pullRequest.Labels, string(rawLabels.Name))
 		}
 
-		if count := rawPullRequest.reviews.totalCount; count > reviewCount {
+		if count := rawPullRequest.Reviews.TotalCount; count > reviewCount {
 			log.Printf("Truncated reviews result for %v/%v PR %v (%v > %v)",
 				vars.Owner, vars.Repository, pullRequest.Number, count, prCount)
 		}
 
-		for _, rawReview := range rawPullRequest.reviews.nodes {
+		for _, rawReview := range rawPullRequest.Reviews.Nodes {
 			review := Review{
-				Author: string(rawReview.author.login),
-				State:  string(rawReview.state),
-				Time:   rawReview.submittedAt.Time,
+				Author: string(rawReview.Author.Login),
+				State:  string(rawReview.State),
+				Time:   rawReview.SubmittedAt.Time,
 			}
 
 			pullRequest.Reviews = append(pullRequest.Reviews, review)
@@ -164,17 +166,22 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 
 		sort.Sort(pullRequest.Reviews)
 
-		if count := rawPullRequest.reviewRequests.totalCount; count > reviewReqCount {
+		if count := rawPullRequest.ReviewRequests.TotalCount; count > reviewReqCount {
 			log.Printf("Truncated review request result for %v/%v PR %v (%v > %v)",
 				vars.Owner, vars.Repository, pullRequest.Number, count, prCount)
 		}
 
-		for _, reviewRequests := range rawPullRequest.reviewRequests.nodes {
+		for _, reviewRequests := range rawPullRequest.ReviewRequests.Nodes {
 			pullRequest.ReviewRequests =
-				append(pullRequest.ReviewRequests, string(reviewRequests.requestedReviewer.user.login))
+				append(pullRequest.ReviewRequests, string(reviewRequests.RequestedReviewer.User.Login))
 		}
 
 		pullRequests = append(pullRequests, pullRequest)
+	}
+
+	{ // DEBUG
+		bytes, _ := json.MarshalIndent(pullRequests, "", "    ")
+		log.Printf("PullRequests: %v", string(bytes))
 	}
 
 	return pullRequests, nil
