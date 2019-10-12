@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 )
 
 type Notification struct {
@@ -63,33 +62,23 @@ func NotifySlack(client *http.Client, user string, notif Notifications) error {
 		log.Printf("Notifications: %v", string(bytes))
 	}
 
-	builder := strings.Builder{}
+	buffer := bytes.Buffer{}
 	for _, entry := range notif {
-		line := fmt.Sprintf("[] %v: [%v](%v/pull/%v)\n",
-			entry.Type, entry.Title, entry.Path, entry.PullRequest)
-
-		log.Printf("line: %v", line)
-
-		builder.WriteString(line)
+		buffer.WriteString(fmt.Sprintf("[] %v: [%v](%v/pull/%v)\n",
+			entry.Type, entry.Title, entry.Path, entry.PullRequest))
 	}
 
-	message := struct {
-		channel string
-		text    string
-	}{
-		channel: user,
-		text:    builder.String(),
+	log.Printf("buffer: %v", buffer.String())
+
+	message := map[string]string{
+		"channel": user,
+		"text":    buffer.String(),
 	}
 
 	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
-
-	if true { // DEBUG
-		log.Printf("Slack Message:\n %v", string(data))
-	}
-
 	client.Post("https://slack.com/api/chat.postMessage", "application/json", bytes.NewReader(data))
 
 	return nil
