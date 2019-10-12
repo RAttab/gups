@@ -1,4 +1,4 @@
-package gups
+package main
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ type Config struct {
 	Users map[string]User `json:"users"`
 	Repos []Repo          `json:"repos"`
 
-	Translate map[string]string
+	TranslateGithubToSlack map[string]string
 }
 
 func ReadConfig(file string) (*Config, error) {
@@ -55,8 +55,9 @@ func ReadConfig(file string) (*Config, error) {
 		}
 	}
 
+	config.TranslateGithubToSlack = make(map[string]string)
 	for _, user := range config.Users {
-		config.Translate[user.Github] = user.Slack
+		config.TranslateGithubToSlack[user.Github] = user.Slack
 	}
 
 	return config, err

@@ -1,7 +1,8 @@
-package gups
+package main
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 	"log"
@@ -93,9 +94,11 @@ type query struct {
 				reviewRequests struct {
 					totalCount githubv4.Int
 					nodes      []struct {
-						user struct {
-							login githubv4.String
-						} `graphql:"... on User"`
+						requestedReviewer struct {
+							user struct {
+								login githubv4.String
+							} `graphql:"... on User"`
+						}
 					}
 				} `graphql:"reviewRequests(first: $reviewReqCount)"`
 			}
@@ -112,6 +115,9 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 		"reviewCount":    githubv4.Int(reviewCount),
 		"reviewReqCount": githubv4.Int(reviewReqCount),
 	}
+
+	bytes, _ := json.Marshal(variables)
+	log.Printf("VARS: %v", string(bytes))
 
 	var raw query
 	if err := client.Query(ctx, &raw, variables); err != nil {
@@ -165,7 +171,7 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 
 		for _, reviewRequests := range rawPullRequest.reviewRequests.nodes {
 			pullRequest.ReviewRequests =
-				append(pullRequest.ReviewRequests, string(reviewRequests.user.login))
+				append(pullRequest.ReviewRequests, string(reviewRequests.requestedReviewer.user.login))
 		}
 
 		pullRequests = append(pullRequests, pullRequest)

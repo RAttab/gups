@@ -1,4 +1,4 @@
-package gups
+package main
 
 import (
 	"context"
@@ -7,6 +7,9 @@ import (
 )
 
 func main() {
+	log.Printf("CONFIG: %v", os.Getenv("CONFIG"))
+	log.Printf("GITHUB_TOKEN: %v", os.Getenv("GITHUB_TOKEN"))
+
 	path := os.Getenv("CONFIG")
 	config, err := ReadConfig(path)
 	if err != nil {
@@ -48,7 +51,7 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs Notifications) {
 
 	for _, request := range pr.ReviewRequests {
 		if _, ok := reviewed[request]; !ok {
-			if slack, ok := config.Translate[request]; ok {
+			if slack, ok := config.TranslateGithubToSlack[request]; ok {
 				notifs[slack] = append(notifs[slack], Notification{
 					Path:        repo.Path,
 					PullRequest: pr.Number,
@@ -69,8 +72,10 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs Notifications) {
 
 	if len(owners) < 2 {
 		for _, owner := range repo.Owners {
-			if _, ok := reviewed[owner]; !ok {
-				if slack, ok := config.Translate[owner]; ok {
+			github := config.Users[owner].Github
+
+			if _, ok := reviewed[github]; !ok {
+				if slack, ok := config.TranslateGithubToSlack[github]; ok {
 					notifs[slack] = append(notifs[slack], Notification{
 						Path:        repo.Path,
 						PullRequest: pr.Number,

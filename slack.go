@@ -1,4 +1,4 @@
-package gups
+package main
 
 import (
 	"bytes"
