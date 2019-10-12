@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"os"
 )
@@ -31,6 +32,11 @@ func main() {
 		for _, pr := range prs {
 			check(&repo, &pr, config, notifs)
 		}
+	}
+
+	if true { // DEBUG
+		bytes, _ := json.MarshalIndent(notifs, "", "    ")
+		log.Printf("Notifications: %v", string(bytes))
 	}
 
 }
@@ -81,9 +87,9 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs Notifications) {
 						PullRequest: pr.Number,
 						Message:     "Pending",
 					})
+				} else {
+					log.Printf("unkown github user '%v' for pending review", github)
 				}
-			} else {
-				log.Printf("unkown github user '%v' for pending review", owner)
 			}
 		}
 	}

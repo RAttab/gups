@@ -116,7 +116,7 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 		"reviewReqCount": githubv4.Int(reviewReqCount),
 	}
 
-	{ // DEBUG
+	if false { // DEBUG
 		bytes, _ := json.MarshalIndent(variables, "", "    ")
 		log.Printf("Vars: %v", string(bytes))
 	}
@@ -179,7 +179,7 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 		pullRequests = append(pullRequests, pullRequest)
 	}
 
-	{ // DEBUG
+	if false { // DEBUG
 		bytes, _ := json.MarshalIndent(pullRequests, "", "    ")
 		log.Printf("PullRequests: %v", string(bytes))
 	}

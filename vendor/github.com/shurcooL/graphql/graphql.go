@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"log"
 
 	"github.com/shurcooL/graphql/internal/jsonutil"
 	"golang.org/x/net/context/ctxhttp"
@@ -51,7 +50,6 @@ func (c *Client) do(ctx context.Context, op operationType, v interface{}, variab
 	switch op {
 	case queryOperation:
 		query = constructQuery(v, variables)
-		log.Printf("QUERY: %v", query)
 	case mutationOperation:
 		query = constructMutation(v, variables)
 	}
