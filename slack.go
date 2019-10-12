@@ -68,7 +68,9 @@ func NotifySlack(client *http.Client, user string, notif Notifications) error {
 			entry.Type, entry.Title, entry.Path, entry.PullRequest))
 	}
 
-	log.Printf("buffer: %v", buffer.String())
+	if true {
+		log.Printf("buffer: %v", buffer.String())
+	}
 
 	message := map[string]string{
 		"channel": user,

@@ -7,8 +7,10 @@ import (
 )
 
 func main() {
-	log.Printf("CONFIG: %v", os.Getenv("CONFIG"))
-	log.Printf("GITHUB_TOKEN: %v", os.Getenv("GITHUB_TOKEN"))
+	if false { //debug
+		log.Printf("CONFIG: %v", os.Getenv("CONFIG"))
+		log.Printf("GITHUB_TOKEN: %v", os.Getenv("GITHUB_TOKEN"))
+	}
 
 	path := os.Getenv("CONFIG")
 	config, err := ReadConfig(path)
@@ -53,9 +55,6 @@ func main() {
 }
 
 func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Notification) {
-	log.Printf("======================================================================")
-	log.Printf("PR: %v %v", pr.Number, pr.Title)
-
 	for _, label := range pr.Labels {
 		if label == "wip" {
 			return
@@ -79,11 +78,10 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 
 	notified := make(map[string]struct{})
 
-	log.Printf("Reviewed Owners: %v", reviewedOwners)
-	log.Printf("Reviewed: %v", reviewed)
-
 	addNotification := func(name, github string) {
-		log.Printf("add: name=%v, github=%v, notified=%v", name, github, notified)
+		if false { // debug
+			log.Printf("add: name=%v, github=%v, notified=%v", name, github, notified)
+		}
 
 		if _, ok := notified[github]; ok {
 			return
