@@ -48,11 +48,15 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs Notifications) {
 
 	for _, request := range pr.ReviewRequests {
 		if _, ok := reviewed[request]; !ok {
-			notifs[request] = append(notifs[request], Notification{
-				Path:        repo.Path,
-				PullRequest: pr.Number,
-				Message:     "Review Request",
-			})
+			if slack, ok := config.Translate[request]; ok {
+				notifs[slack] = append(notifs[slack], Notification{
+					Path:        repo.Path,
+					PullRequest: pr.Number,
+					Message:     "Request",
+				})
+			} else {
+				log.Printf("unkown github user '%v' for review request", request)
+			}
 		}
 	}
 
@@ -66,11 +70,15 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs Notifications) {
 	if len(owners) < 2 {
 		for _, owner := range repo.Owners {
 			if _, ok := reviewed[owner]; !ok {
-				notifs[owner] = append(notifs[owner], Notification{
-					Path:        repo.Path,
-					PullRequest: pr.Number,
-					Message:     "Pending Review",
-				})
+				if slack, ok := config.Translate[owner]; ok {
+					notifs[slack] = append(notifs[slack], Notification{
+						Path:        repo.Path,
+						PullRequest: pr.Number,
+						Message:     "Pending",
+					})
+				}
+			} else {
+				log.Printf("unkown github user '%v' for pending review", owner)
 			}
 		}
 	}

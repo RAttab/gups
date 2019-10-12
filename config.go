@@ -20,6 +20,8 @@ type Repo struct {
 type Config struct {
 	Users map[string]User `json:"users"`
 	Repos []Repo          `json:"repos"`
+
+	Translate map[string]string
 }
 
 func ReadConfig(file string) (*Config, error) {
@@ -51,6 +53,10 @@ func ReadConfig(file string) (*Config, error) {
 				return nil, fmt.Errorf("unconfigured repo owner: %v", owner)
 			}
 		}
+	}
+
+	for _, user := range config.Users {
+		config.Translate[user.Github] = user.Slack
 	}
 
 	return config, err
