@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 	"log"
@@ -51,6 +52,7 @@ type PullRequest struct {
 	Number int32
 	Title  string
 	Author string
+	Age    string
 
 	Labels         []string
 	Reviews        Reviews
@@ -67,9 +69,10 @@ type query struct {
 		PullRequests struct {
 			TotalCount githubv4.Int
 			Nodes      []struct {
-				Number githubv4.Int
-				Title  githubv4.String
-				Author struct {
+				Number    githubv4.Int
+				CreatedAt githubv4.DateTime
+				Title     githubv4.String
+				Author    struct {
 					Login githubv4.String
 				}
 
@@ -106,7 +109,7 @@ type query struct {
 	} `graphql:"repository(owner: $owner, name: $repo)"`
 }
 
-func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variables) ([]PullRequest, error) {
+func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variables) ([]*PullRequest, error) {
 	variables := map[string]interface{}{
 		"owner":          githubv4.String(vars.Owner),
 		"repo":           githubv4.String(vars.Repository),
@@ -131,13 +134,14 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 			vars.Owner, vars.Repository, count, prCount)
 	}
 
-	var pullRequests []PullRequest
+	var pullRequests []*PullRequest
 	for _, rawPullRequest := range raw.Repository.PullRequests.Nodes {
 
-		pullRequest := PullRequest{
+		pullRequest := &PullRequest{
 			Number: int32(rawPullRequest.Number),
 			Title:  string(rawPullRequest.Title),
 			Author: string(rawPullRequest.Author.Login),
+			Age:    age(rawPullRequest.CreatedAt.Time),
 		}
 
 		if count := rawPullRequest.Labels.TotalCount; count > labelCount {
@@ -185,4 +189,16 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 	}
 
 	return pullRequests, nil
+}
+
+func age(createdAt time.Time) string {
+	delta := time.Now().Sub(createdAt)
+
+	if days := delta / (time.Hour * 24); days >= 1 {
+		return fmt.Sprintf("%vd", int64(days))
+	} else if hours := delta / time.Hour; hours >= 1 {
+		return fmt.Sprintf("%vh", int64(hours))
+	}
+
+	return "1h"
 }

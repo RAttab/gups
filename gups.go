@@ -33,7 +33,7 @@ func main() {
 		}
 
 		for _, pr := range prs {
-			check(&repo, &pr, config, notifs)
+			check(&repo, pr, config, notifs)
 		}
 	}
 
@@ -90,10 +90,9 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 
 		if slack, ok := config.TranslateGithubToSlack[github]; ok {
 			notifs[slack] = append(notifs[slack], Notification{
-				Path:        repo.Path,
-				PullRequest: pr.Number,
-				Title:       pr.Title,
-				Type:        name,
+				Type: name,
+				Path: repo.Path,
+				PR:   pr,
 			})
 		} else {
 			log.Printf("unkown github user '%v' for '%v'", github, name)

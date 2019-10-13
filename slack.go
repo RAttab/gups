@@ -13,10 +13,9 @@ import (
 )
 
 type Notification struct {
-	Path        string
-	PullRequest int32
-	Title       string
-	Type        string
+	Type string
+	Path string
+	PR   *PullRequest
 }
 
 type Notifications []Notification
@@ -36,7 +35,7 @@ func (n Notifications) Less(i, j int) bool {
 		if n[i].Path > n[j].Path {
 			return true
 		} else if n[i].Path == n[j].Path {
-			if n[i].PullRequest > n[j].PullRequest {
+			if n[i].PR.Number > n[j].PR.Number {
 				return true
 			}
 		}
@@ -62,10 +61,18 @@ func NotifySlack(client *http.Client, user string, notif Notifications) error {
 		log.Printf("Notifications: %v", string(bytes))
 	}
 
+	currType := ""
 	buffer := bytes.Buffer{}
+
 	for _, entry := range notif {
-		buffer.WriteString(fmt.Sprintf("[] %v: [%v](%v/pull/%v)\n",
-			entry.Type, entry.Title, entry.Path, entry.PullRequest))
+
+		if currType != entry.Type {
+			currType = entry.Type
+			buffer.WriteString(fmt.Sprintf("**%v:**\n", currType))
+		}
+
+		buffer.WriteString(fmt.Sprintf("-[**%v/%v**](%v/pull/%v) (%v): %v\n",
+			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title))
 	}
 
 	if true {
