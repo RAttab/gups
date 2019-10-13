@@ -71,7 +71,7 @@ func NotifySlack(client *http.Client, user string, notif Notifications) error {
 			buffer.WriteString(fmt.Sprintf("**%v:**\n", currType))
 		}
 
-		buffer.WriteString(fmt.Sprintf("-[**%v/%v**](%v/pull/%v) (%v): %v\n",
+		buffer.WriteString(fmt.Sprintf("-[**%v/%v**](https://github.com/%v/pull/%v) (%v): %v\n",
 			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title))
 	}
 
