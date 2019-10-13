@@ -37,16 +37,11 @@ func main() {
 		}
 	}
 
-	slackClient, err := ConnectSlack(context.TODO())
-	if err != nil {
-		log.Fatalf("Unable to connect to slack: %v", err)
-	}
-
 	index := 0
 	for user, notif := range notifs {
 		log.Printf("[%v/%v] notifying %v...", index+1, len(notifs), user)
 
-		if err := NotifySlack(slackClient, user, notif); err != nil {
+		if err := NotifySlack(user, notif); err != nil {
 			log.Fatalf("Unable to notify slack: %v", err)
 		}
 

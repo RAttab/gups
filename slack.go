@@ -2,10 +2,8 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2/clientcredentials"
 	"log"
 	"net/http"
 	"os"
@@ -43,17 +41,7 @@ func (n Notifications) Less(i, j int) bool {
 	return false
 }
 
-func ConnectSlack(ctx context.Context) (*http.Client, error) {
-	config := &clientcredentials.Config{
-		ClientID:     os.Getenv("SLACK_CLIENT_ID"),
-		ClientSecret: os.Getenv("SLACK_CLIENT_SECRET"),
-		Scopes:       []string{"chat:write:bot"},
-		TokenURL:     "https://slack.com/api/oauth.access",
-	}
-	return config.Client(ctx), nil
-}
-
-func NotifySlack(client *http.Client, user string, notif Notifications) error {
+func NotifySlack(user string, notif Notifications) error {
 	sort.Sort(notif)
 
 	if false { // DEBUG
@@ -80,15 +68,25 @@ func NotifySlack(client *http.Client, user string, notif Notifications) error {
 	}
 
 	message := map[string]string{
-		"channel": user,
-		"text":    buffer.String(),
+		"access_token": os.Getenv("SLACK_TOKEN"),
+		"username":     "Gups",
+		"channel":      user,
+		"text":         buffer.String(),
 	}
+
+	fmt.Printf("slack: %v", message)
 
 	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
-	client.Post("https://slack.com/api/chat.postMessage", "application/json", bytes.NewReader(data))
 
+	resp, err := http.Post("https://slack.com/api/chat.postMessage", "application/json", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("Response: %v", resp)
 	return nil
 }

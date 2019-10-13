@@ -12,6 +12,6 @@
 *.out
 
 # developer token
-token
 gups
 *.json
+*.token
