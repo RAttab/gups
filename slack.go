@@ -11,6 +11,8 @@ import (
 	"github.com/nlopes/slack"
 )
 
+const IconURL = "https://github.com/RAttab/gups/blob/master/gups.png?raw=true"
+
 type Notification struct {
 	Type string
 	Path string
@@ -117,6 +119,7 @@ func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 		slack.MsgOptionUsername("GUPS"),
 		slack.MsgOptionAsUser(false),
 		slack.MsgOptionText(buffer.String(), false),
+		slack.MsgOptionIconURL(IconURL),
 		slack.MsgOptionDisableLinkUnfurl())
 
 	if err != nil {
