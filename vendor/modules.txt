@@ -1,5 +1,14 @@
 # github.com/golang/protobuf v1.2.0
 github.com/golang/protobuf/proto
+# github.com/gorilla/websocket v1.2.0
+github.com/gorilla/websocket
+# github.com/nlopes/slack v0.6.0
+github.com/nlopes/slack
+github.com/nlopes/slack/internal/errorsx
+github.com/nlopes/slack/internal/timex
+github.com/nlopes/slack/slackutilsx
+# github.com/pkg/errors v0.8.0
+github.com/pkg/errors
 # github.com/shurcooL/githubv4 v0.0.0-20191006152017-6d1ea27df521
 github.com/shurcooL/githubv4
 # github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f
@@ -11,7 +20,6 @@ golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 # golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 golang.org/x/oauth2
-golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
 # google.golang.org/appengine v1.4.0
 google.golang.org/appengine/internal

@@ -10,6 +10,7 @@ func main() {
 	if false { //debug
 		log.Printf("CONFIG: %v", os.Getenv("CONFIG"))
 		log.Printf("GITHUB_TOKEN: %v", os.Getenv("GITHUB_TOKEN"))
+		log.Printf("SLACK_TOKEN: %v", os.Getenv("SLACK_TOKEN"))
 	}
 
 	path := os.Getenv("CONFIG")
@@ -19,6 +20,10 @@ func main() {
 	}
 
 	githubClient := ConnectGithub()
+	slackClient, err := ConnectSlack()
+	if err != nil {
+		log.Fatalf("unable to connect to slack: %v", err)
+	}
 
 	notifs := make(map[string][]Notification)
 
@@ -37,11 +42,15 @@ func main() {
 		}
 	}
 
+	if err := SlackTranslateUsers(slackClient, config); err != nil {
+		log.Fatalf("unable to translate slack users: %v", err)
+	}
+
 	index := 0
 	for user, notif := range notifs {
 		log.Printf("[%v/%v] notifying %v...", index+1, len(notifs), user)
 
-		if err := NotifySlack(user, notif); err != nil {
+		if err := NotifySlack(slackClient, user, notif); err != nil {
 			log.Fatalf("Unable to notify slack: %v", err)
 		}
 

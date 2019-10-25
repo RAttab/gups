@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"sort"
+	"strings"
+
+	"github.com/nlopes/slack"
 )
 
 type Notification struct {
@@ -41,7 +43,32 @@ func (n Notifications) Less(i, j int) bool {
 	return false
 }
 
-func NotifySlack(user string, notif Notifications) error {
+func ConnectSlack() (*slack.Client, error) {
+	client := slack.New(os.Getenv("SLACK_TOKEN"))
+	if _, err := client.AuthTest(); err != nil {
+		return nil, err
+	}
+	return client, nil
+}
+
+func SlackTranslateUsers(client *slack.Client, config *Config) error {
+	for _, user := range config.Users {
+		if !strings.Contains(user.Slack, "@") {
+			continue
+		}
+
+		slackUser, err := client.GetUserByEmail(user.Slack)
+		if err != nil {
+			return fmt.Errorf("failed to get '%v' slack user: %v", user.Slack, err)
+		}
+
+		user.Slack = slackUser.ID
+	}
+
+	return nil
+}
+
+func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 	sort.Sort(notif)
 
 	if false { // DEBUG
@@ -67,26 +94,16 @@ func NotifySlack(user string, notif Notifications) error {
 		log.Printf("buffer: %v", buffer.String())
 	}
 
-	message := map[string]string{
-		"access_token": os.Getenv("SLACK_TOKEN"),
-		"username":     "Gups",
-		"channel":      user,
-		"text":         buffer.String(),
-	}
+	a, b, err := client.PostMessage(user,
+		slack.MsgOptionUsername("GUPS"),
+		slack.MsgOptionAsUser(false),
+		slack.MsgOptionText(buffer.String(), false),
+		slack.MsgOptionDisableLinkUnfurl())
 
-	fmt.Printf("slack: %v", message)
-
-	data, err := json.Marshal(message)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post("https://slack.com/api/chat.postMessage", "application/json", bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	fmt.Printf("Response: %v", resp)
+	log.Printf("slack.reply: %v, %v", a, b)
 	return nil
 }
