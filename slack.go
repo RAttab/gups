@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/nlopes/slack"
 )
@@ -51,21 +50,41 @@ func ConnectSlack() (*slack.Client, error) {
 	return client, nil
 }
 
-func SlackTranslateUsers(client *slack.Client, config *Config) error {
-	for _, user := range config.Users {
-		if !strings.Contains(user.Slack, "@") {
-			continue
-		}
+type SlackUsers map[string]string
 
-		slackUser, err := client.GetUserByEmail(user.Slack)
-		if err != nil {
-			return fmt.Errorf("failed to get '%v' slack user: %v", user.Slack, err)
-		}
+func SlackMapUsers(client *slack.Client, config *Config) SlackUsers {
+	users := make(SlackUsers)
 
-		user.Slack = slackUser.ID
+	slackUsers, err := client.GetUsers()
+	if err != nil {
+		log.Fatalf("unable to get slack users: %v", err)
 	}
 
-	return nil
+	slackIds := make(map[string]string)
+	for _, user := range slackUsers {
+		slackIds[user.Name] = user.ID
+	}
+
+	for github, slack := range config.Users {
+		if id, ok := slackIds[slack]; ok {
+			users[github] = id
+		} else {
+			log.Printf("unknown slack user '%v'", slack)
+		}
+	}
+
+	return users
+}
+
+func SlackDumpUsers(client *slack.Client) {
+	users, err := client.GetUsers()
+	if err != nil {
+		log.Fatalf("unable to get slack users: %v", err)
+	}
+
+	for _, user := range users {
+		fmt.Printf("%v: %v (%v)\n", user.ID, user.Name, user.RealName)
+	}
 }
 
 func NotifySlack(client *slack.Client, user string, notif Notifications) error {
@@ -83,10 +102,10 @@ func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 
 		if currType != entry.Type {
 			currType = entry.Type
-			buffer.WriteString(fmt.Sprintf("**%v:**\n", currType))
+			buffer.WriteString(fmt.Sprintf("*%v:*\n", currType))
 		}
 
-		buffer.WriteString(fmt.Sprintf("-[**%v/%v**](https://github.com/%v/pull/%v) (%v): %v\n",
+		buffer.WriteString(fmt.Sprintf("- *<https://github.com/%v/pull/%v|%v/%v>* (%v): %v\n",
 			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title))
 	}
 

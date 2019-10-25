@@ -2,15 +2,26 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 )
 
+var dumpUsers = flag.Bool("dump-users", false, "dumps the slack users and exits")
+
 func main() {
+	flag.Parse()
+
 	if false { //debug
 		log.Printf("CONFIG: %v", os.Getenv("CONFIG"))
 		log.Printf("GITHUB_TOKEN: %v", os.Getenv("GITHUB_TOKEN"))
 		log.Printf("SLACK_TOKEN: %v", os.Getenv("SLACK_TOKEN"))
+	}
+
+	slackClient, err := ConnectSlack()
+	if *dumpUsers {
+		SlackDumpUsers(slackClient)
+		return
 	}
 
 	path := os.Getenv("CONFIG")
@@ -20,12 +31,12 @@ func main() {
 	}
 
 	githubClient := ConnectGithub()
-	slackClient, err := ConnectSlack()
 	if err != nil {
 		log.Fatalf("unable to connect to slack: %v", err)
 	}
 
 	notifs := make(map[string][]Notification)
+	slackUsers := SlackMapUsers(slackClient, config)
 
 	for index, repo := range config.Repos {
 		log.Printf("[%v/%v] processing %v...", index+1, len(config.Repos), repo.Path)
@@ -42,16 +53,16 @@ func main() {
 		}
 	}
 
-	if err := SlackTranslateUsers(slackClient, config); err != nil {
-		log.Fatalf("unable to translate slack users: %v", err)
-	}
-
 	index := 0
-	for user, notif := range notifs {
-		log.Printf("[%v/%v] notifying %v...", index+1, len(notifs), user)
+	for githubUser, notif := range notifs {
+		log.Printf("[%v/%v] notifying %v...", index+1, len(notifs), githubUser)
 
-		if err := NotifySlack(slackClient, user, notif); err != nil {
-			log.Fatalf("Unable to notify slack: %v", err)
+		if slackUser, ok := slackUsers[githubUser]; ok {
+			if err := NotifySlack(slackClient, slackUser, notif); err != nil {
+				log.Fatalf("Unable to notify slack: %v", err)
+			}
+		} else {
+			log.Printf("unconfigured github user '%v'", githubUser)
 		}
 
 		index++
@@ -74,46 +85,40 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 
 	reviewedOwners := make(map[string]struct{})
 	for _, owner := range repo.Owners {
-		github := config.Users[owner].Github
-		if _, ok := reviewed[github]; ok {
-			reviewedOwners[github] = struct{}{}
+		if _, ok := reviewed[owner]; ok {
+			reviewedOwners[owner] = struct{}{}
 		}
 	}
 
 	notified := make(map[string]struct{})
 
-	addNotification := func(name, github string) {
+	addNotification := func(name, user string) {
 		if false { // debug
-			log.Printf("add: name=%v, github=%v, notified=%v", name, github, notified)
+			log.Printf("add: name=%v, github=%v, notified=%v", name, user, notified)
 		}
 
-		if _, ok := notified[github]; ok {
+		if _, ok := notified[user]; ok {
 			return
 		}
-		notified[github] = struct{}{}
 
-		if slack, ok := config.TranslateGithubToSlack[github]; ok {
-			notifs[slack] = append(notifs[slack], Notification{
-				Type: name,
-				Path: repo.Path,
-				PR:   pr,
-			})
-		} else {
-			log.Printf("unkown github user '%v' for '%v'", github, name)
-		}
+		notified[user] = struct{}{}
+		notifs[user] = append(notifs[user], Notification{
+			Type: name,
+			Path: repo.Path,
+			PR:   pr,
+		})
 	}
 
 	if len(reviewedOwners) < 2 {
 		for _, owner := range repo.Owners {
-			github := config.Users[owner].Github
-			if _, ok := reviewed[github]; !ok {
-				addNotification("Pending", github)
+			if _, ok := reviewed[owner]; !ok {
+				addNotification("Pending", owner)
 			}
 		}
 	} else {
 		addNotification("Ready", pr.Author)
 		for _, owner := range repo.Owners {
-			addNotification("Ready", config.Users[owner].Github)
+			addNotification("Ready", owner)
 		}
 	}
 
