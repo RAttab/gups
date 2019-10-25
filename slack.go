@@ -111,11 +111,11 @@ func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title))
 	}
 
-	if true {
+	if false { // DEBUG
 		log.Printf("buffer: %v", buffer.String())
 	}
 
-	a, b, err := client.PostMessage(user,
+	_, _, err := client.PostMessage(user,
 		slack.MsgOptionUsername("GUPS"),
 		slack.MsgOptionAsUser(false),
 		slack.MsgOptionText(buffer.String(), false),
@@ -125,7 +125,5 @@ func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 	if err != nil {
 		return err
 	}
-
-	log.Printf("slack.reply: %v, %v", a, b)
 	return nil
 }
