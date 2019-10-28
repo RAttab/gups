@@ -18,8 +18,9 @@ type Repo struct {
 }
 
 type Config struct {
-	Users map[string]string `json:"github_to_slack_user"`
-	Repos []Repo            `json:"repos"`
+	Users      map[string]string `json:"github_to_slack_user"`
+	Repos      []Repo            `json:"repos"`
+	SkipLabels []string          `json:"skip_pr_labels"`
 }
 
 func ReadConfig(file string) (*Config, error) {

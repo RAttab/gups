@@ -72,8 +72,10 @@ func main() {
 
 func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Notification) {
 	for _, label := range pr.Labels {
-		if strings.ToLower(label) == "wip" {
-			return
+		for _, toSkip := range config.SkipLabels {
+			if strings.ToLower(label) == toSkip {
+				return
+			}
 		}
 	}
 
