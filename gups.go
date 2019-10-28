@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 )
 
 var dumpUsers = flag.Bool("dump-users", false, "dumps the slack users and exits")
@@ -71,7 +72,7 @@ func main() {
 
 func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Notification) {
 	for _, label := range pr.Labels {
-		if label == "wip" {
+		if strings.ToLower(label) == "wip" {
 			return
 		}
 	}
