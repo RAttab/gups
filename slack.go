@@ -12,6 +12,8 @@ import (
 )
 
 const IconURL = "https://github.com/RAttab/gups/blob/master/gups.png?raw=true"
+const MsgLimit = 40000
+const TruncateFooter = "\n..."
 
 type Notification struct {
 	Type string
@@ -107,8 +109,16 @@ func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 			buffer.WriteString(fmt.Sprintf("*%v:*\n", currType))
 		}
 
-		buffer.WriteString(fmt.Sprintf("- *<https://github.com/%v/pull/%v|%v/%v>* (%v): %v\n",
-			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title))
+		Line := fmt.Sprintf("- *<https://github.com/%v/pull/%v|%v/%v>* (%v): %v\n",
+			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title)
+
+		if buffer.Len()+len(Line) <= MsgLimit {
+			buffer.WriteString(Line)
+		} else {
+			buffer.WriteString(TruncateFooter)
+			log.Printf("truncated")
+			break
+		}
 	}
 
 	if false { // DEBUG
