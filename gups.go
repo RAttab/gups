@@ -103,9 +103,9 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 
 	notified := make(map[string]struct{})
 
-	addNotification := func(name, user string) {
+	addNotification := func(cat Category, user string) {
 		if false { // debug
-			log.Printf("add: name=%v, github=%v, notified=%v", name, user, notified)
+			log.Printf("add: cat=%v, github=%v, notified=%v", cat, user, notified)
 		}
 
 		if _, ok := notified[user]; ok {
@@ -114,28 +114,29 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 
 		notified[user] = struct{}{}
 		notifs[user] = append(notifs[user], Notification{
-			Type: name,
-			Path: repo.Path,
-			PR:   pr,
+			Category: cat,
+			Path:     repo.Path,
+			PR:       pr,
 		})
 	}
 
 	if len(reviewedOwners) < 2 {
+		addNotification(CategoryOpen, pr.Author)
 		for _, owner := range repo.Owners {
 			if _, ok := reviewed[owner]; !ok {
-				addNotification("Pending", owner)
+				addNotification(CategoryPending, owner)
 			}
 		}
 	} else {
-		addNotification("Ready", pr.Author)
+		addNotification(CategoryReady, pr.Author)
 		for _, owner := range repo.Owners {
-			addNotification("Ready", owner)
+			addNotification(CategoryReady, owner)
 		}
 	}
 
 	for _, request := range pr.ReviewRequests {
 		if _, ok := reviewed[request]; !ok {
-			addNotification("Request", request)
+			addNotification(CategoryRequested, request)
 		}
 	}
 }

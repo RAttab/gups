@@ -48,11 +48,30 @@ func (r Reviews) Less(i, j int) bool {
 	return r[i].Time.After(r[j].Time)
 }
 
+type Age struct {
+	Delta time.Duration
+}
+
+func NewAge(ts time.Time) Age {
+	return Age{Delta: time.Now().Sub(ts)}
+}
+
+func (age Age) String() string {
+	if years := age.Delta / (time.Hour * 24 * 365); years >= 1 {
+		return fmt.Sprintf("%vy", int64(years))
+	} else if days := age.Delta / (time.Hour * 24); days >= 1 {
+		return fmt.Sprintf("%vd", int64(days))
+	} else if hours := age.Delta / time.Hour; hours >= 1 {
+		return fmt.Sprintf("%vh", int64(hours))
+	}
+	return "1h"
+}
+
 type PullRequest struct {
 	Number int32
 	Title  string
 	Author string
-	Age    string
+	Age    Age
 
 	Labels         []string
 	Reviews        Reviews
@@ -141,7 +160,7 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 			Number: int32(rawPullRequest.Number),
 			Title:  string(rawPullRequest.Title),
 			Author: string(rawPullRequest.Author.Login),
-			Age:    age(rawPullRequest.CreatedAt.Time),
+			Age:    NewAge(rawPullRequest.CreatedAt.Time),
 		}
 
 		if count := rawPullRequest.Labels.TotalCount; count > labelCount {
@@ -189,16 +208,4 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 	}
 
 	return pullRequests, nil
-}
-
-func age(createdAt time.Time) string {
-	delta := time.Now().Sub(createdAt)
-
-	if days := delta / (time.Hour * 24); days >= 1 {
-		return fmt.Sprintf("%vd", int64(days))
-	} else if hours := delta / time.Hour; hours >= 1 {
-		return fmt.Sprintf("%vh", int64(hours))
-	}
-
-	return "1h"
 }

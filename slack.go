@@ -15,10 +15,33 @@ const IconURL = "https://github.com/RAttab/gups/blob/master/gups.png?raw=true"
 const MsgLimit = 40000
 const TruncateFooter = "\n..."
 
+type Category int32
+
+const (
+	CategoryReady Category = iota
+	CategoryPending
+	CategoryRequested
+	CategoryOpen
+)
+
+func (cat Category) String() string {
+	switch cat {
+	case CategoryReady:
+		return "*Ready* (pull requests ready to merge)"
+	case CategoryPending:
+		return "*Pending* (pull requests for repos you own awaiting review)"
+	case CategoryRequested:
+		return "*Requested* (pull requests that you've been asked to review)"
+	case CategoryOpen:
+		return "*Open* (pull requests awaiting reviews that you opened)"
+	}
+	return "*Whoops* (something went horribly wrong)"
+}
+
 type Notification struct {
-	Type string
-	Path string
-	PR   *PullRequest
+	Category Category
+	Path     string
+	PR       *PullRequest
 }
 
 type Notifications []Notification
@@ -32,17 +55,12 @@ func (n Notifications) Swap(i, j int) {
 }
 
 func (n Notifications) Less(i, j int) bool {
-	if n[i].Type > n[j].Type {
+	if n[i].Category < n[j].Category {
 		return true
-	} else if n[i].Type == n[j].Type {
-		if n[i].Path > n[j].Path {
-			return true
-		} else if n[i].Path == n[j].Path {
-			if n[i].PR.Number > n[j].PR.Number {
-				return true
-			}
-		}
+	} else if n[i].Category == n[j].Category {
+		return n[i].PR.Age.Delta < n[j].PR.Age.Delta
 	}
+
 	return false
 }
 
@@ -99,18 +117,21 @@ func NotifySlack(client *slack.Client, user string, notif Notifications, dryRun 
 		log.Printf("Notifications: %v", string(bytes))
 	}
 
-	currType := ""
+	var currCategory Category = -1
 	buffer := bytes.Buffer{}
 
 	for _, entry := range notif {
 
-		if currType != entry.Type {
-			currType = entry.Type
-			buffer.WriteString(fmt.Sprintf("*%v:*\n", currType))
+		if currCategory != entry.Category {
+			currCategory = entry.Category
+			buffer.WriteString(fmt.Sprintf("%v:\n", currCategory))
 		}
 
 		Line := fmt.Sprintf("- *<https://github.com/%v/pull/%v|%v/%v>* (%v): %v\n",
-			entry.Path, entry.PR.Number, entry.Path, entry.PR.Number, entry.PR.Age, entry.PR.Title)
+			entry.Path, entry.PR.Number,
+			entry.Path, entry.PR.Number,
+			entry.PR.Age,
+			entry.PR.Title)
 
 		if buffer.Len()+len(Line) <= MsgLimit {
 			buffer.WriteString(Line)
