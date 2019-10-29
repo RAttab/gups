@@ -21,10 +21,18 @@ func main() {
 	}
 
 	if *dryRun {
-		log.Printf("dry run...")
+		log.Printf("DRY RUN: no messages will be posted to slack")
 	}
 
 	slackClient, err := ConnectSlack()
+	if err != nil {
+		if *dryRun {
+			log.Printf("unable to connect to slack: %v", err)
+		} else {
+			log.Fatalf("unable to connect to slack: %v", err)
+		}
+	}
+
 	if *dumpUsers {
 		SlackDumpUsers(slackClient)
 		return
@@ -102,6 +110,7 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 	}
 
 	notified := make(map[string]struct{})
+	skipped := make(map[string]struct{})
 
 	addNotification := func(cat Category, user string) {
 		if false { // debug
@@ -109,6 +118,11 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 		}
 
 		if _, ok := notified[user]; ok {
+			return
+		}
+
+		if _, ok := config.Users[user]; !ok {
+			skipped[user] = struct{}{}
 			return
 		}
 
@@ -138,5 +152,9 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 		if _, ok := reviewed[request]; !ok {
 			addNotification(CategoryRequested, request)
 		}
+	}
+
+	for user, _ := range skipped {
+		log.Printf("skipped user %v", user)
 	}
 }

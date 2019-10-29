@@ -127,10 +127,10 @@ func NotifySlack(client *slack.Client, user string, notif Notifications, dryRun 
 			buffer.WriteString(fmt.Sprintf("%v:\n", currCategory))
 		}
 
-		Line := fmt.Sprintf("- *<https://github.com/%v/pull/%v|%v/%v>* (%v): %v\n",
-			entry.Path, entry.PR.Number,
-			entry.Path, entry.PR.Number,
+		Line := fmt.Sprintf("[%v] *<https://github.com/%v/pull/%v|%v/%v>*: %v\n",
 			entry.PR.Age,
+			entry.Path, entry.PR.Number,
+			entry.Path, entry.PR.Number,
 			entry.PR.Title)
 
 		if buffer.Len()+len(Line) <= MsgLimit {
