@@ -96,6 +96,9 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 		if _, ok := reviewed[owner]; ok {
 			reviewedOwners[owner] = struct{}{}
 		}
+		if owner == pr.Author {
+			reviewedOwners[owner] = struct{}{}
+		}
 	}
 
 	notified := make(map[string]struct{})
