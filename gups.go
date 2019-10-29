@@ -9,6 +9,7 @@ import (
 )
 
 var dumpUsers = flag.Bool("dump-users", false, "dumps the slack users and exits")
+var dryRun = flag.Bool("dry-run", false, "print slack notifications without sending them")
 
 func main() {
 	flag.Parse()
@@ -17,6 +18,10 @@ func main() {
 		log.Printf("CONFIG: %v", os.Getenv("CONFIG"))
 		log.Printf("GITHUB_TOKEN: %v", os.Getenv("GITHUB_TOKEN"))
 		log.Printf("SLACK_TOKEN: %v", os.Getenv("SLACK_TOKEN"))
+	}
+
+	if *dryRun {
+		log.Printf("dry run...")
 	}
 
 	slackClient, err := ConnectSlack()
@@ -59,7 +64,7 @@ func main() {
 		log.Printf("[%v/%v] notifying %v...", index+1, len(notifs), githubUser)
 
 		if slackUser, ok := slackUsers[githubUser]; ok {
-			if err := NotifySlack(slackClient, slackUser, notif); err != nil {
+			if err := NotifySlack(slackClient, slackUser, notif, *dryRun); err != nil {
 				log.Fatalf("Unable to notify slack: %v", err)
 			}
 		} else {

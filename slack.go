@@ -91,7 +91,7 @@ func SlackDumpUsers(client *slack.Client) {
 	}
 }
 
-func NotifySlack(client *slack.Client, user string, notif Notifications) error {
+func NotifySlack(client *slack.Client, user string, notif Notifications, dryRun bool) error {
 	sort.Sort(notif)
 
 	if false { // DEBUG
@@ -121,19 +121,21 @@ func NotifySlack(client *slack.Client, user string, notif Notifications) error {
 		}
 	}
 
-	if false { // DEBUG
-		log.Printf("buffer: %v", buffer.String())
+	if dryRun {
+		log.Printf("%v", buffer.String())
+
+	} else {
+		_, _, err := client.PostMessage(user,
+			slack.MsgOptionUsername("GUPS"),
+			slack.MsgOptionAsUser(false),
+			slack.MsgOptionText(buffer.String(), false),
+			slack.MsgOptionIconURL(IconURL),
+			slack.MsgOptionDisableLinkUnfurl())
+
+		if err != nil {
+			return err
+		}
 	}
 
-	_, _, err := client.PostMessage(user,
-		slack.MsgOptionUsername("GUPS"),
-		slack.MsgOptionAsUser(false),
-		slack.MsgOptionText(buffer.String(), false),
-		slack.MsgOptionIconURL(IconURL),
-		slack.MsgOptionDisableLinkUnfurl())
-
-	if err != nil {
-		return err
-	}
 	return nil
 }
