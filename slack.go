@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"sort"
 
@@ -27,15 +29,15 @@ const (
 func (cat Category) String() string {
 	switch cat {
 	case CategoryReady:
-		return "*Ready* (pull requests ready to merge)"
+		return "*Ready*"
 	case CategoryPending:
-		return "*Pending* (pull requests for repos you own awaiting review)"
+		return "*Pending*"
 	case CategoryRequested:
-		return "*Requested* (pull requests that you've been asked to review)"
+		return "*Requested*"
 	case CategoryOpen:
-		return "*Open* (pull requests awaiting reviews that you opened)"
+		return "*Open*"
 	}
-	return "*Whoops* (something went horribly wrong)"
+	return "*Whoops*"
 }
 
 type Notification struct {
@@ -109,6 +111,28 @@ func SlackDumpUsers(client *slack.Client) {
 	}
 }
 
+func inspiration() (string, error) {
+	req, err := http.NewRequest("GET", "https://icanhazdadjoke.com/", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Accept", "text/plain")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return string(body), err
+}
+
 func NotifySlack(client *slack.Client, user string, notif Notifications, dryRun bool) error {
 	sort.Sort(notif)
 
@@ -127,18 +151,29 @@ func NotifySlack(client *slack.Client, user string, notif Notifications, dryRun 
 			buffer.WriteString(fmt.Sprintf("%v:\n", currCategory))
 		}
 
-		Line := fmt.Sprintf("[%v] *<https://github.com/%v/pull/%v|%v/%v>*: %v\n",
+		line := fmt.Sprintf("- [%v] *<https://github.com/%v/pull/%v|%v/%v>*: %v\n",
 			entry.PR.Age,
 			entry.Path, entry.PR.Number,
 			entry.Path, entry.PR.Number,
 			entry.PR.Title)
 
-		if buffer.Len()+len(Line) <= MsgLimit {
-			buffer.WriteString(Line)
+		if buffer.Len()+len(line) <= MsgLimit {
+			buffer.WriteString(line)
 		} else {
 			buffer.WriteString(TruncateFooter)
 			log.Printf("truncated")
 			break
+		}
+	}
+
+	quote, err := inspiration()
+	if err != nil {
+		log.Printf("unable to retrieve daily inspirational quote: %v", err)
+	} else {
+		line := fmt.Sprintf("*Inspirational Quote:*\n> %v", quote)
+
+		if buffer.Len()+len(line) <= MsgLimit {
+			buffer.WriteString(line)
 		}
 	}
 
