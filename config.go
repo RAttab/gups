@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-type User struct {
-	Github string `json:"github"`
-	Slack  string `json:"slack"`
-}
-
 type Repo struct {
 	Path   string   `json:"path"`
 	Owners []string `json:"owners"`

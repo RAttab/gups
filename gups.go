@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -81,6 +82,10 @@ func main() {
 
 		index++
 	}
+
+	perUser, perRepo := calcStats(notifs)
+	logStats("Users", perUser)
+	logStats("Repo", perRepo)
 }
 
 func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Notification) {
@@ -156,5 +161,65 @@ func check(repo *Repo, pr *PullRequest, config *Config, notifs map[string][]Noti
 
 	for user, _ := range skipped {
 		log.Printf("skipped user %v", user)
+	}
+}
+
+type stat struct {
+	string
+	int
+}
+type stats []stat
+
+func (stats stats) Len() int {
+	return len(stats)
+}
+
+func (stats stats) Swap(i, j int) {
+	stats[i], stats[j] = stats[j], stats[i]
+}
+
+func (stats stats) Less(i, j int) bool {
+	if stats[i].int < stats[j].int {
+		return true
+	}
+	return stats[i].string < stats[j].string
+}
+
+func calcStats(notifs map[string][]Notification) (perUser, perRepo stats) {
+	repoMap := make(map[string]map[int32]struct{})
+
+	for user, todo := range notifs {
+		if len(todo) > 0 {
+			perUser = append(perUser, stat{user, len(todo)})
+		}
+
+		for _, notif := range todo {
+			if _, ok := repoMap[notif.Path]; !ok {
+				repoMap[notif.Path] = make(map[int32]struct{})
+			}
+			repoMap[notif.Path][notif.PR.Number] = struct{}{}
+		}
+	}
+
+	for repo, todo := range repoMap {
+		if len(todo) > 0 {
+			perRepo = append(perRepo, stat{repo, len(todo)})
+		}
+	}
+
+	return
+}
+
+func logStats(title string, stats stats) {
+	sort.Sort(stats)
+
+	log.Printf("%v Stats:", title)
+	if len(stats) == 0 {
+		log.Printf("  Everybody is on top of their shit; Gupi-chan is disapointed.")
+		return
+	}
+
+	for _, stat := range stats {
+		log.Printf("  %2d %v", stat.int, stat.string)
 	}
 }
