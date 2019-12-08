@@ -9,10 +9,10 @@
 
 ## What is it?
 
-Tool to help manage github pull requests through slack by providing a daily todo
-list of pull requests via slack private messages.
+Tool to help manage Github pull requests through Slack by providing a daily todo
+list of pull requests via Slack private messages.
 
-The slack messages take the form of:
+The Slack messages take the form of:
 
 ```text
 Ready:
@@ -79,8 +79,8 @@ utilities provided by Gups:
 
 | Argument | Effect |
 | - | - |
-| `-dry-run` | Sends the slack notification to the console instead of slack |
-| `-dump-users` | Dumps all the visible users in the slack workspace |
+| `-dry-run` | Sends the Slack notification to the console instead of Slack |
+| `-dump-users` | Dumps all the visible users in the Slack workspace |
 
 
 
@@ -109,7 +109,7 @@ out if a Slack user is accessible with the provided token which can be a problem
 dealing with multiple Slack workspace.
 
 `repos` lists all the Github repos to be scanned by Gups. The `path` entry
-is the simplified github path for the repo which takes the form
+is the simplified Github path for the repo which takes the form
 `<github-username>/<repo-name>`. The `owner` entry, is a list of Github users
 configured in the `github_to_slack_user` section.
 
@@ -120,6 +120,6 @@ console of sending them to Slack.
 
 ## Credits
 
-**Gupi-chan logos**: https://make.girls.moe/
-**Inpirational Quotes**: https://icanhazdadjoke.com/
+* **Gupi-chan logos**: https://make.girls.moe/
+* **Inpirational Quotes**: https://icanhazdadjoke.com/
 
