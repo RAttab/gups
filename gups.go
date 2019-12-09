@@ -181,8 +181,10 @@ func (stats stats) Swap(i, j int) {
 func (stats stats) Less(i, j int) bool {
 	if stats[i].int < stats[j].int {
 		return true
+	} else if stats[i].int == stats[j].int {
+		return stats[i].string < stats[j].string
 	}
-	return stats[i].string < stats[j].string
+	return false
 }
 
 func calcStats(notifs map[string][]Notification) (perUser, perRepo stats) {
