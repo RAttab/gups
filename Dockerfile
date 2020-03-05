@@ -15,5 +15,5 @@ ARG BUILT_FROM_REF=latest
 COPY --from=build /build/gups /usr/local/bin/gups
 
 ENV CONFIG=/etc/gups/config.json
-LABEL maintainer=rattab@gmail.com BUILT_FROM_REF=${BUILT_FROM_REF}
+LABEL maintainer=remi.attab@gmail.com BUILT_FROM_REF=${BUILT_FROM_REF}
 ENTRYPOINT [ "/usr/local/bin/gups" ]
