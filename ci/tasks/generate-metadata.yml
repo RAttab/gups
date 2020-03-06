@@ -1,0 +1,26 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: alpine
+    tag: '3.11'
+
+run:
+  path: /bin/sh
+  args:
+    - -c
+    - |
+      set -o errexit
+
+      printf 'installing dependencies ...' >&2
+      apk add -U bash git > /dev/null 2>&1
+      printf " done\n" >&2
+
+      gups-repo/ci/scripts/output-ci-metadata.sh
+
+inputs:
+  - name: gups-repo
+
+outputs:
+  - name: build-metadata

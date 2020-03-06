@@ -9,7 +9,7 @@ if git describe --exact-match HEAD && git diff --quiet; then
   minor="$(echo "${tag}" | cut -d. -f2)"
 
   docker build \
-    --build-arg "BUILT_FROM_REF=$(git rev-parse HEAD)" \
+    --label "BUILT_FROM_REF=$(git rev-parse HEAD)" \
     -t registry.hub.docker.com/rattab/gups:latest \
     -t "registry.hub.docker.com/rattab/gups:${tag}" \
     -t "registry.hub.docker.com/rattab/gups:${major}" \
@@ -17,7 +17,7 @@ if git describe --exact-match HEAD && git diff --quiet; then
     .
 else
   docker build \
-    --build-arg "BUILT_FROM_REF=$(git rev-parse HEAD)" \
+    --label "BUILT_FROM_REF=$(git rev-parse HEAD)" \
     -t "registry.hub.docker.com/rattab/gups:dev-$(date +%s)" \
     .
 fi
