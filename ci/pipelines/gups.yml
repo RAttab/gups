@@ -1,0 +1,32 @@
+resources:
+  - name: gups-repo
+    type: git
+    source:
+      uri: https://github.com/rattab/gups
+      tag_filter: '*.*.*'
+      check_every: 24h
+
+  - name: gups-image
+    type: docker-image
+    source:
+      repository: registry.hub.docker.com/adgear/gups
+      username: ((dockerhub.username))
+      password: ((dockerhub.access_token))
+
+jobs:
+  - name: build-image
+    plan:
+      - get: gups-repo
+        version: every
+        trigger: true
+
+      - task: generate-metadata
+        file: gups-repo/ci/tasks/generate-metadata.yml
+
+      - put: gups-image
+        params:
+          build: gups-repo
+          tag_file: build-metadata/tag
+          additional_tags: build-metadata/additionnal_tags
+          labels_file: build-metadata/labels.json
+          tag_as_latest: true
