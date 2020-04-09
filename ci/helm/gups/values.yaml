@@ -1,0 +1,71 @@
+# Default values for gups.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository: registry.hub.docker.com/adgear/gups
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 96Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# This translates to 2PM, Monday to Friday.
+# https://crontab.guru/#*_14_*_*_1-5
+# Do check which timezone your kube master's timezone. We recommend the universe
+# uses GMT.
+# https://v1-15.docs.kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/
+cronSchedule: "* 14 * * 1-5"
+
+concurrencyPolicy: Replace
+successfulJobsHistoryLimit: 5
+failedJobsHistoryLimit: 5
+
+secrets:
+  github-token:
+    key: GITHUB_TOKEN
+    value: "foo"
+  slack-webhook:
+    key: SLACK_WEBHOOK
+    value: "bar"
+
+# For the config, you can either fill it in here,
+# Or simply source it from another file by overriding the configmap in your
+# wrapper chart
+config:
+  # github_to_slack_user:
+  #   RAttab: remi.attab
+  # skip_pr_labels:
+  #   - "wip"
+  #   - ":wip:"
+  # repos:
+  #   - path: RAttab/gups
+  #     owners:
+  #       - RAttab
+  #   - path: RAttab/slides
+  #     owners:
+  #       - RAttab

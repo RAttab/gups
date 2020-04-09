@@ -1,0 +1,60 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ include "gups.fullname" . }}-cronjob
+  labels:
+    {{- include "gups.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronSchedule | quote }}
+  concurrencyPolicy: {{ .Values.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+        {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 8 }}
+        {{- end }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: gups
+              image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              env:
+                {{- range $key, $value := .Values.secrets }}
+                - name: {{ $value.key | upper }}
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ template "gups.fullname" $ }}-secrets
+                      key: {{ $key }}
+                {{ end }}
+                - name: CONFIG
+                  value: /etc/gups/config.json
+              volumeMounts:
+                - name: config-volume
+                  mountPath: /etc/gups/config.json
+                  subPath: config.json
+          volumes:
+            - name: config-volume
+              configMap:
+                name: {{ template "gups.fullname" . }}-config
+          restartPolicy: OnFailure
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 8 }}
+          {{- end }}
+        {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 8 }}
+        {{- end }}
