@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -40,7 +41,7 @@ func main() {
 	}
 
 	path := os.Getenv("CONFIG")
-	config, err := ReadConfig(path)
+	config, err := ReadConfig(path, filepath.Ext(path))
 	if err != nil {
 		log.Fatalf("unable to read config '%v': %v", path, err)
 	}

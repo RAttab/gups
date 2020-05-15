@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"strings"
 )
@@ -13,20 +14,31 @@ type Repo struct {
 }
 
 type Config struct {
-	Users      map[string]string `json:"github_to_slack_user"`
-	Repos      []Repo            `json:"repos"`
-	SkipLabels []string          `json:"skip_pr_labels"`
+	Users      map[string]string `json:"github_to_slack_user" yaml:"github_to_slack_user"`
+	Repos      []Repo            `json:"repos" yaml:"repos"`
+	SkipLabels []string          `json:"skip_pr_labels" yaml:"skip_pr_labels"`
 }
 
-func ReadConfig(file string) (*Config, error) {
+func ReadConfig(file, format string) (*Config, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
 
 	config := &Config{}
-	if err := json.Unmarshal(data, config); err != nil {
-		return nil, err
+	switch format {
+	case ".yml", ".yaml":
+		fmt.Println("File is in yaml format")
+		if err := yaml.Unmarshal(data, config); err != nil {
+			return nil, err
+		}
+	case ".json":
+		fmt.Println("File is in json format")
+		if err := json.Unmarshal(data, config); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("config file is not a valid format")
 	}
 
 	if len(config.Users) == 0 {
