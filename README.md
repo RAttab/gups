@@ -108,10 +108,12 @@ Gups. The `-dump-users` command line argument utility can be useful to figure
 out if a Slack user is accessible with the provided token which can be a problem when
 dealing with multiple Slack workspace.
 
-`repos` lists all the Github repos to be scanned by Gups. The `path` entry
-is the simplified Github path for the repo which takes the form
+`repos` lists all the Github repos to be scanned by Gups. The `path` entry is
+the simplified Github path for the repo which takes the form
 `<github-username>/<repo-name>`. The `owner` entry, is a list of Github users
-configured in the `github_to_slack_user` section.
+configured in the `github_to_slack_user` section. Note that an empty owner list
+is also acceptable in which case only the requested reviews will be pulled from
+the repo.
 
 You can test your config via the `-dry-run` command line argument which will
 execute the Gups workflow but will dump the notifications messages to the
