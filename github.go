@@ -6,19 +6,24 @@ import (
 	"fmt"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
-	"log"
 	"os"
 	"sort"
 	"time"
 )
 
-func ConnectGithub() *githubv4.Client {
+type GithubClient githubv4.Client
+
+func (client *GithubClient) cast() *githubv4.Client {
+	return (*githubv4.Client)(client)
+}
+
+func ConnectGithub() *GithubClient {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: os.Getenv("GITHUB_TOKEN")},
 	)
 	httpClient := oauth2.NewClient(context.Background(), src)
 
-	return githubv4.NewClient(httpClient)
+	return (*GithubClient)(githubv4.NewClient(httpClient))
 }
 
 const (
@@ -68,14 +73,34 @@ func (age Age) String() string {
 }
 
 type PullRequest struct {
+	id     string
 	Number int32
 	Title  string
 	Author string
 	Age    Age
 
-	Labels         []string
+	Labels         Set
 	Reviews        Reviews
-	ReviewRequests []string
+	ReviewRequests Set
+}
+
+func (pr PullRequest) Reviewed() Set {
+	reviewed := NewSet()
+	pending := NewSet()
+
+	for _, review := range pr.Reviews {
+		if reviewed.Test(pr.Author) || pending.Test(pr.Author) {
+			continue
+		}
+
+		if review.State == "APPROVED" {
+			reviewed.Put(review.Author)
+		} else {
+			pending.Put(review.Author)
+		}
+	}
+
+	return reviewed
 }
 
 type Variables struct {
@@ -83,11 +108,12 @@ type Variables struct {
 	Repository string
 }
 
-type query struct {
+type queryPR struct {
 	Repository struct {
 		PullRequests struct {
 			TotalCount githubv4.Int
 			Nodes      []struct {
+				Id        githubv4.String
 				Number    githubv4.Int
 				CreatedAt githubv4.DateTime
 				Title     githubv4.String
@@ -128,7 +154,7 @@ type query struct {
 	} `graphql:"repository(owner: $owner, name: $repo)"`
 }
 
-func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variables) ([]*PullRequest, error) {
+func (client *GithubClient) QueryPullRequests(ctx context.Context, vars Variables) []*PullRequest {
 	variables := map[string]interface{}{
 		"owner":          githubv4.String(vars.Owner),
 		"repo":           githubv4.String(vars.Repository),
@@ -140,16 +166,17 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 
 	if false { // DEBUG
 		bytes, _ := json.MarshalIndent(variables, "", "    ")
-		log.Printf("Vars: %v", string(bytes))
+		Debug("Vars: %v", string(bytes))
 	}
 
-	var raw query
-	if err := client.Query(ctx, &raw, variables); err != nil {
-		return nil, err
+	var raw queryPR
+	if err := client.cast().Query(ctx, &raw, variables); err != nil {
+		Fatal("unable to query github: %v", err)
+		return nil
 	}
 
 	if count := raw.Repository.PullRequests.TotalCount; count > prCount {
-		log.Printf("Truncated PR result for %v/%v (%v > %v)",
+		Warning("Truncated PR result for %v/%v (%v > %v)",
 			vars.Owner, vars.Repository, count, prCount)
 	}
 
@@ -157,6 +184,7 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 	for _, rawPullRequest := range raw.Repository.PullRequests.Nodes {
 
 		pullRequest := &PullRequest{
+			id:     string(rawPullRequest.Id),
 			Number: int32(rawPullRequest.Number),
 			Title:  string(rawPullRequest.Title),
 			Author: string(rawPullRequest.Author.Login),
@@ -164,16 +192,17 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 		}
 
 		if count := rawPullRequest.Labels.TotalCount; count > labelCount {
-			log.Printf("Truncated label result for %v/%v PR %v (%v > %v)",
+			Warning("Truncated label result for %v/%v PR %v (%v > %v)",
 				vars.Owner, vars.Repository, pullRequest.Number, count, prCount)
 		}
 
+		pullRequest.Labels = NewSet()
 		for _, rawLabels := range rawPullRequest.Labels.Nodes {
-			pullRequest.Labels = append(pullRequest.Labels, string(rawLabels.Name))
+			pullRequest.Labels.Put(string(rawLabels.Name))
 		}
 
 		if count := rawPullRequest.Reviews.TotalCount; count > reviewCount {
-			log.Printf("Truncated reviews result for %v/%v PR %v (%v > %v)",
+			Warning("Truncated reviews result for %v/%v PR %v (%v > %v)",
 				vars.Owner, vars.Repository, pullRequest.Number, count, prCount)
 		}
 
@@ -190,13 +219,13 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 		sort.Sort(pullRequest.Reviews)
 
 		if count := rawPullRequest.ReviewRequests.TotalCount; count > reviewReqCount {
-			log.Printf("Truncated review request result for %v/%v PR %v (%v > %v)",
+			Warning("Truncated review request result for %v/%v PR %v (%v > %v)",
 				vars.Owner, vars.Repository, pullRequest.Number, count, prCount)
 		}
 
+		pullRequest.ReviewRequests = NewSet()
 		for _, reviewRequests := range rawPullRequest.ReviewRequests.Nodes {
-			pullRequest.ReviewRequests =
-				append(pullRequest.ReviewRequests, string(reviewRequests.RequestedReviewer.User.Login))
+			pullRequest.ReviewRequests.Put(string(reviewRequests.RequestedReviewer.User.Login))
 		}
 
 		pullRequests = append(pullRequests, pullRequest)
@@ -204,8 +233,60 @@ func QueryPullRequests(ctx context.Context, client *githubv4.Client, vars Variab
 
 	if false { // DEBUG
 		bytes, _ := json.MarshalIndent(pullRequests, "", "    ")
-		log.Printf("PullRequests: %v", string(bytes))
+		Debug("PullRequests: %v", string(bytes))
 	}
 
-	return pullRequests, nil
+	return pullRequests
+}
+
+var userId map[string]githubv4.ID = make(map[string]githubv4.ID)
+
+func (client GithubClient) userId(ctx context.Context, user string) (githubv4.ID, error) {
+	if id, ok := userId[user]; ok {
+		return id, nil
+	}
+
+	var raw struct {
+		User struct {
+			Id githubv4.ID
+		} `graphql:"user(login: $user)"`
+	}
+
+	vars := map[string]interface{}{
+		"user": user,
+	}
+
+	if err := client.cast().Query(ctx, &raw, vars); err != nil {
+		return nil, err
+	}
+
+	id := raw.User.Id
+	userId[user] = id
+	return id, nil
+}
+
+func (client GithubClient) RequestReview(ctx context.Context, pr *PullRequest, users []string) {
+	var ids []githubv4.ID
+	for _, user := range users {
+		id, err := client.userId(ctx, user)
+		if err != nil {
+			Fatal("unable to translate user '%v' to github id: %v", user)
+		}
+
+		ids = append(ids, id)
+	}
+
+	var raw struct {
+		RequestReviews struct {
+		} `graphql:"requestReviews(input: $input)"`
+	}
+
+	input := githubv4.RequestReviewsInput{
+		PullRequestID: githubv4.ID(pr.id),
+		UserIDs:       &ids,
+	}
+
+	if err := client.cast().Mutate(ctx, &raw, input, nil); err != nil {
+		Fatal("unable to request reviews for '%v -> %v' on PR '%v': %v", users, ids, pr.Number, err)
+	}
 }

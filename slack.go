@@ -17,27 +17,28 @@ const IconURL = "https://github.com/RAttab/gups/blob/master/gups.png?raw=true"
 const MsgLimit = 40000
 const TruncateFooter = "\n..."
 
-type Category int32
+type Category int
 
 const (
-	CategoryReady Category = iota
+	CategoryAssigned Category = iota
 	CategoryPending
-	CategoryRequested
+	CategoryReady
 	CategoryOpen
 )
 
 func (cat Category) String() string {
 	switch cat {
+	case CategoryAssigned:
+		return "*Assigned*"
 	case CategoryReady:
 		return "*Ready*"
 	case CategoryPending:
 		return "*Pending*"
-	case CategoryRequested:
-		return "*Requested*"
 	case CategoryOpen:
 		return "*Open*"
 	}
-	return "*Whoops*"
+	Fatal("unkown category '%v'", cat)
+	return "meep"
 }
 
 type Notification struct {
@@ -64,6 +65,12 @@ func (n Notifications) Less(i, j int) bool {
 	}
 
 	return false
+}
+
+type UserNotifications map[string]Notifications
+
+func (n UserNotifications) Add(cat Category, user, repo string, pr *PullRequest) {
+	n[user] = append(n[user], Notification{cat, repo, pr})
 }
 
 func ConnectSlack() (*slack.Client, error) {
