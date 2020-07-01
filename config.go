@@ -36,17 +36,22 @@ func ReadConfig(file string) *Config {
 		Fatal("unable to open '%v': %v", file, err)
 	}
 
+	return ParseConfig(file, data)
+}
+
+func ParseConfig(name string, data []byte) *Config {
+
 	config := &Config{}
 	if err := json.Unmarshal(data, config); err != nil {
-		Fatal("unable to parse '%v': %v", file, err)
+		Fatal("unable to parse '%v': %v", name, err)
 	}
 
 	if len(config.Users) == 0 {
-		Fatal("missing field 'github_to_slack_user' in '%v'", file)
+		Fatal("missing field 'github_to_slack_user' in '%v'", name)
 	}
 
 	if len(config.Pools) == 0 {
-		Fatal("missing field 'pools' in '%v'", file)
+		Fatal("missing field 'pools' in '%v'", name)
 	}
 
 	for poolName, pool := range config.Pools {
@@ -58,7 +63,7 @@ func ReadConfig(file string) *Config {
 	}
 
 	if len(config.Repos) == 0 {
-		Fatal("missing field 'repos' in '%v'", file)
+		Fatal("missing field 'repos' in '%v'", name)
 	}
 
 	for _, repo := range config.Repos {

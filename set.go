@@ -62,6 +62,20 @@ func (set Set) Remove(other Set) {
 	}
 }
 
+func (set Set) Equals(other Set) bool {
+	if len(set) != len(other) {
+		return false
+	}
+
+	array := other.ToArray()
+	for i, item := range set.ToArray() {
+		if item != array[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func (set Set) Union(other Set) Set {
 	result := make(Set)
 	for item, _ := range set {

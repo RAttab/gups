@@ -124,6 +124,8 @@ func (rules Rules) Apply(ruleName string, pr *PullRequest) Result {
 			result.Pending.Add(assigned.Difference(reviewed))
 			result.Assigned.Add(assigned)
 		}
+
+		break
 	}
 
 	return result
