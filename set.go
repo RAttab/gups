@@ -119,12 +119,11 @@ func (set Set) Pick(n int) Set {
 		return set
 	}
 
-	result := make(Set)
 	arr := set.ToArray()
-	for len(result) < n {
-		result.Put(arr[rand.Int()%len(arr)])
-	}
-	return result
+	rand.Shuffle(len(arr), func(i, j int) {
+		arr[i], arr[j] = arr[j], arr[i]
+	})
+	return NewSet(arr[0:n]...)
 }
 
 func (set Set) String() string {

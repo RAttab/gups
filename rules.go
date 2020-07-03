@@ -100,6 +100,10 @@ func NewRuleset(config *Config) *Ruleset {
 	return ruleset
 }
 
+func (ruleset *Ruleset) KnownUser(user string) bool {
+	return ruleset.users.Test(user)
+}
+
 type Result struct {
 	New       Set
 	Pending   Set
@@ -148,8 +152,11 @@ func (ruleset *Ruleset) Apply(ruleName string, pr *PullRequest) Result {
 		break
 	}
 
-	result.Requested = pr.ReviewRequests.Difference(result.Assigned).Difference(reviewed)
 	result.Ready = result.Pending.Empty()
+	result.Requested = pr.ReviewRequests.
+		Difference(result.Assigned).
+		Difference(reviewed).
+		Intersect(ruleset.users)
 
 	return result
 }

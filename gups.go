@@ -4,7 +4,10 @@ import (
 	"context"
 	"flag"
 	"log"
+	"math/rand"
 	"os"
+	"sort"
+	"time"
 )
 
 var full = flag.Bool("full", false, "notify with full summary")
@@ -41,6 +44,8 @@ func main() {
 	path := os.Getenv("CONFIG")
 	config := ReadConfig(path)
 
+	rand.Seed(time.Now().UnixNano())
+
 	githubClient := ConnectGithub()
 	if err != nil {
 		Fatal("unable to connect to slack: %v", err)
@@ -65,11 +70,15 @@ func main() {
 
 			if *full {
 				if result.Ready {
-					notifs.Add(CategoryReady, pr.Author, repo.Path, pr)
+					if ruleset.KnownUser(pr.Author) {
+						notifs.Add(CategoryReady, pr.Author, repo.Path, pr)
+					}
 				} else {
-					notifs.Add(CategoryOpen, pr.Author, repo.Path, pr)
-					for user, _ := range result.Pending {
-						notifs.Add(CategoryReady, user, repo.Path, pr)
+					if ruleset.KnownUser(pr.Author) {
+						notifs.Add(CategoryOpen, pr.Author, repo.Path, pr)
+					}
+					for user, _ := range result.Pending.Difference(result.Assigned) {
+						notifs.Add(CategoryPending, user, repo.Path, pr)
 					}
 				}
 				for user, _ := range result.Requested {
@@ -92,6 +101,54 @@ func main() {
 		}
 
 		index++
+	}
+
+	stats(notifs)
+}
+
+type Stat struct {
+	key string
+	val int
+}
+
+type Stats []Stat
+
+func (s Stats) Len() int           { return len(s) }
+func (s Stats) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s Stats) Less(i, j int) bool { return s[i].val > s[j].val }
+
+func NewStats(m map[string]int) Stats {
+	var stats Stats
+	for key, val := range m {
+		stats = append(stats, Stat{key, val})
+	}
+	sort.Sort(stats)
+	return stats
+}
+
+func stats(notifs UserNotifications) {
+	perRepo := make(map[string]int)
+	perUser := make(map[string]int)
+
+	for user, list := range notifs {
+		for _, item := range list {
+			if item.Category != CategoryAssigned && item.Category != CategoryPending {
+				continue
+			}
+
+			perUser[user] += 1
+			perRepo[item.Path] += 1
+		}
+	}
+
+	Info("pending reviews per repo:")
+	for _, stat := range NewStats(perRepo) {
+		Info("  %2d %v", stat.val, stat.key)
+	}
+
+	Info("pending reviews per user:")
+	for _, stat := range NewStats(perUser) {
+		Info("  %2d %v", stat.val, stat.key)
 	}
 }
 
