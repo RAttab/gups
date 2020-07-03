@@ -58,22 +58,22 @@ func main() {
 		for _, pr := range githubClient.QueryPullRequests(context.TODO(), vars) {
 			result := ruleset.Apply(repo.Rule, pr)
 
-			githubClient.RequestReview(context.TODO(), pr, result.New.ToArray())
+			githubClient.RequestReview(context.TODO(), pr, result.New.ToArray(), *dryRun)
 			for user, _ := range result.New {
-				notifs.Add(CategoryAssigned, slackUsers[user], repo.Path, pr)
+				notifs.Add(CategoryAssigned, user, repo.Path, pr)
 			}
 
 			if *full {
 				if result.Ready {
-					notifs.Add(CategoryReady, slackUsers[pr.Author], repo.Path, pr)
+					notifs.Add(CategoryReady, pr.Author, repo.Path, pr)
 				} else {
-					notifs.Add(CategoryOpen, slackUsers[pr.Author], repo.Path, pr)
+					notifs.Add(CategoryOpen, pr.Author, repo.Path, pr)
 					for user, _ := range result.Pending {
-						notifs.Add(CategoryReady, slackUsers[user], repo.Path, pr)
+						notifs.Add(CategoryReady, user, repo.Path, pr)
 					}
 				}
 				for user, _ := range result.Requested {
-					notifs.Add(CategoryRequested, slackUsers[user], repo.Path, pr)
+					notifs.Add(CategoryRequested, user, repo.Path, pr)
 				}
 			}
 		}

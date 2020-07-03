@@ -253,7 +253,7 @@ func (client GithubClient) userId(ctx context.Context, user string) (githubv4.ID
 	}
 
 	vars := map[string]interface{}{
-		"user": user,
+		"user": githubv4.String(user),
 	}
 
 	if err := client.cast().Query(ctx, &raw, vars); err != nil {
@@ -265,12 +265,18 @@ func (client GithubClient) userId(ctx context.Context, user string) (githubv4.ID
 	return id, nil
 }
 
-func (client GithubClient) RequestReview(ctx context.Context, pr *PullRequest, users []string) {
+func (client GithubClient) RequestReview(
+	ctx context.Context, pr *PullRequest, users []string, dryRun bool) {
+
+	if len(users) == 0 {
+		return
+	}
+
 	var ids []githubv4.ID
 	for _, user := range users {
 		id, err := client.userId(ctx, user)
 		if err != nil {
-			Fatal("unable to translate user '%v' to github id: %v", user)
+			Fatal("unable to translate user '%v' to github id: %v", user, err)
 		}
 
 		ids = append(ids, id)
@@ -278,6 +284,7 @@ func (client GithubClient) RequestReview(ctx context.Context, pr *PullRequest, u
 
 	var raw struct {
 		RequestReviews struct {
+			ClientMutationId githubv4.String
 		} `graphql:"requestReviews(input: $input)"`
 	}
 
@@ -286,7 +293,13 @@ func (client GithubClient) RequestReview(ctx context.Context, pr *PullRequest, u
 		UserIDs:       &ids,
 	}
 
+	Info("<%v> review request: %v", pr.Number, users)
+	if dryRun {
+		return
+	}
+
 	if err := client.cast().Mutate(ctx, &raw, input, nil); err != nil {
-		Fatal("unable to request reviews for '%v -> %v' on PR '%v': %v", users, ids, pr.Number, err)
+		Fatal("unable to request reviews for '%v -> %v' on PR '%v': %v",
+			users, ids, pr.Number, err)
 	}
 }
