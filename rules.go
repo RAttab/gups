@@ -105,6 +105,7 @@ type Result struct {
 	Pending   Set
 	Assigned  Set
 	Requested Set
+	Ready     bool
 }
 
 func (ruleset *Ruleset) Apply(ruleName string, pr *PullRequest) Result {
@@ -124,7 +125,6 @@ func (ruleset *Ruleset) Apply(ruleName string, pr *PullRequest) Result {
 	all := pr.ReviewRequests.Union(reviewed)
 
 	for _, rule := range ruleset.ruleset[ruleName] {
-		Debug("if: %v:%v <- %v", rule.If, ruleset.pools[rule.If], pr.Author)
 		if rule.HasIf() && !ruleset.pools[rule.If].Test(pr.Author) {
 			continue
 		}
@@ -133,14 +133,10 @@ func (ruleset *Ruleset) Apply(ruleName string, pr *PullRequest) Result {
 			pool := ruleset.pools[pick.Pool]
 
 			active := pool.Intersect(all).Difference(author)
-			assigned := active.Copy()
+			assigned := active.Copy().Take(pick.Count)
 
-			Debug("pool: %v", pool)
-			Debug("active: %v", active)
-
-			if missing := pick.Count - len(active); missing > 0 {
+			if missing := pick.Count - len(assigned); missing > 0 {
 				picked := pool.Difference(active.Union(author)).Pick(missing)
-				Debug("picked: %v", picked)
 				assigned.Add(picked)
 				result.New.Add(picked)
 			}
@@ -152,7 +148,8 @@ func (ruleset *Ruleset) Apply(ruleName string, pr *PullRequest) Result {
 		break
 	}
 
-	result.Requested = pr.ReviewRequests.Difference(result.Assigned)
+	result.Requested = pr.ReviewRequests.Difference(result.Assigned).Difference(reviewed)
+	result.Ready = result.Pending.Empty()
 
 	return result
 }

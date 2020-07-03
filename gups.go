@@ -64,13 +64,16 @@ func main() {
 			}
 
 			if *full {
-				if result.Pending.Empty() {
+				if result.Ready {
 					notifs.Add(CategoryReady, slackUsers[pr.Author], repo.Path, pr)
 				} else {
 					notifs.Add(CategoryOpen, slackUsers[pr.Author], repo.Path, pr)
 					for user, _ := range result.Pending {
 						notifs.Add(CategoryReady, slackUsers[user], repo.Path, pr)
 					}
+				}
+				for user, _ := range result.Requested {
+					notifs.Add(CategoryRequested, slackUsers[user], repo.Path, pr)
 				}
 			}
 		}

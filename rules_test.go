@@ -17,27 +17,35 @@ func TestBasics(t *testing.T) {
 
 	Check(t, ruleset, "r1",
 		PR("pr1", "u1"),
-		New("u2"), Pending("u2"), Assigned("u2"), Requested())
+		New("u2"), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r1",
 		PR("pr2", "u1").Request("u2"),
-		New(), Pending("u2"), Assigned("u2"), Requested())
+		New(), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r1",
 		PR("pr3", "u1").Review("u2", true),
-		New(), Pending(), Assigned("u2"), Requested())
+		New(), Pending(), Assigned("u2"), Requested(), Ready(true))
 
 	Check(t, ruleset, "r1",
 		PR("pr4", "u1").Review("u2", false),
-		New("u2"), Pending("u2"), Assigned("u2"), Requested())
+		New("u2"), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r1",
-		PR("pr5", "u1").Request("u2").Review("u2", true),
-		New(), Pending(), Assigned("u2"), Requested())
+		PR("pr5", "u1").Review("u2", false).Review("u2", true),
+		New("u2"), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r1",
-		PR("pr6", "u1").Request("u2").Review("u2", false),
-		New(), Pending("u2"), Assigned("u2"), Requested())
+		PR("pr6", "u1").Review("u2", true).Review("u2", false),
+		New(), Pending(), Assigned("u2"), Requested(), Ready(true))
+
+	Check(t, ruleset, "r1",
+		PR("pr7", "u1").Request("u2").Review("u2", true),
+		New(), Pending(), Assigned("u2"), Requested(), Ready(true))
+
+	Check(t, ruleset, "r1",
+		PR("pr8", "u1").Request("u2").Review("u2", false),
+		New(), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 }
 
 func TestCount(t *testing.T) {
@@ -52,15 +60,15 @@ func TestCount(t *testing.T) {
 
 	Check(t, ruleset, "r1",
 		PR("pr1", "u1"),
-		New("u2", "u3"), Pending("u2", "u3"), Assigned("u2", "u3"), Requested())
+		New("u2", "u3"), Pending("u2", "u3"), Assigned("u2", "u3"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r2",
 		PR("pr1", "u1"),
-		New("u2", "u3"), Pending("u2", "u3"), Assigned("u2", "u3"), Requested())
+		New("u2", "u3"), Pending("u2", "u3"), Assigned("u2", "u3"), Requested(), Ready(false))
 }
 
 func TestCond(t *testing.T) {
-	Debug("[ cond ]==============================================")
+	Debug("[ if ]==============================================")
 	ruleset := MakeRuleset(`
     "pools": {
         "p1": [ "u1" ],
@@ -73,15 +81,15 @@ func TestCond(t *testing.T) {
 
 	Check(t, ruleset, "r1",
 		PR("pr1", "u1"),
-		New("u2"), Pending("u2"), Assigned("u2"), Requested())
+		New("u2"), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r1",
 		PR("pr2", "u2"),
-		New("u3"), Pending("u3"), Assigned("u3"), Requested())
+		New("u3"), Pending("u3"), Assigned("u3"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r1",
 		PR("pr3", "u3"),
-		New(), Pending(), Assigned(), Requested())
+		New(), Pending(), Assigned(), Requested(), Ready(true))
 }
 
 func TestRequested(t *testing.T) {
@@ -100,11 +108,19 @@ func TestRequested(t *testing.T) {
 
 	Check(t, ruleset, "r1",
 		PR("pr1", "u1").Request("u3"),
-		New("u2"), Pending("u2"), Assigned("u2"), Requested("u3"))
+		New("u2"), Pending("u2"), Assigned("u2"), Requested("u3"), Ready(false))
+
+	Check(t, ruleset, "r1",
+		PR("pr2", "u1").Request("u3").Review("u3", true),
+		New("u2"), Pending("u2"), Assigned("u2"), Requested(), Ready(false))
 
 	Check(t, ruleset, "r2",
-		PR("pr2", "u1").Request("u3"),
-		New(), Pending("u3"), Assigned("u3"), Requested())
+		PR("pr3", "u1").Request("u3"),
+		New(), Pending("u3"), Assigned("u3"), Requested(), Ready(false))
+
+	Check(t, ruleset, "r2",
+		PR("pr4", "u1").Request("u2").Request("u3"),
+		New(), Pending("u2"), Assigned("u2"), Requested("u3"), Ready(false))
 }
 
 func MakeRuleset(body string) *Ruleset {
@@ -152,7 +168,13 @@ func Requested(users ...string) Set {
 	return NewSet(users...)
 }
 
-func Check(t *testing.T, ruleset *Ruleset, rule string, pr *PullRequest, new, pending, assigned, requested Set) {
+func Ready(val bool) bool {
+	return val
+}
+
+func Check(t *testing.T, ruleset *Ruleset, rule string, pr *PullRequest,
+	new, pending, assigned, requested Set, ready bool) {
+
 	Debug("[ %v ]----------------------------------------------", pr.Title)
 
 	rand.Seed(0)
@@ -162,6 +184,10 @@ func Check(t *testing.T, ruleset *Ruleset, rule string, pr *PullRequest, new, pe
 	CheckSet(t, pr.Title+"-pending", pending, result.Pending)
 	CheckSet(t, pr.Title+"-assigned", assigned, result.Assigned)
 	CheckSet(t, pr.Title+"-requested", requested, result.Requested)
+
+	if ready != result.Ready {
+		t.Errorf("%v-ready: val=%v exp=%v", pr.Title, result.Ready, ready)
+	}
 }
 
 func CheckSet(t *testing.T, title string, exp, val Set) {

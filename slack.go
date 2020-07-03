@@ -24,6 +24,7 @@ const (
 	CategoryPending
 	CategoryReady
 	CategoryOpen
+	CategoryRequested
 )
 
 func (cat Category) String() string {
@@ -36,6 +37,8 @@ func (cat Category) String() string {
 		return "*Pending*"
 	case CategoryOpen:
 		return "*Open*"
+	case CategoryRequested:
+		return "*Requested*"
 	}
 	Fatal("unkown category '%v'", cat)
 	return "meep"

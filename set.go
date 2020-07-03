@@ -107,6 +107,13 @@ func (set Set) Difference(other Set) Set {
 	return result
 }
 
+func (set Set) Take(n int) Set {
+	if n > len(set) {
+		return set.Copy()
+	}
+	return NewSet(set.ToArray()[0:n]...)
+}
+
 func (set Set) Pick(n int) Set {
 	if n >= len(set) {
 		return set

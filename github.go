@@ -89,7 +89,7 @@ func (pr PullRequest) Reviewed() Set {
 	pending := NewSet()
 
 	for _, review := range pr.Reviews {
-		if reviewed.Test(pr.Author) || pending.Test(pr.Author) {
+		if reviewed.Test(review.Author) || pending.Test(review.Author) {
 			continue
 		}
 
