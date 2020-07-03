@@ -46,7 +46,7 @@ func main() {
 		Fatal("unable to connect to slack: %v", err)
 	}
 
-	rules := NewRules(config)
+	ruleset := NewRuleset(config)
 
 	notifs := make(UserNotifications)
 	slackUsers := SlackMapUsers(slackClient, config)
@@ -56,7 +56,7 @@ func main() {
 
 		vars := PathToVariables(repo.Path)
 		for _, pr := range githubClient.QueryPullRequests(context.TODO(), vars) {
-			result := rules.Apply(repo.Rule, pr)
+			result := ruleset.Apply(repo.Rule, pr)
 
 			githubClient.RequestReview(context.TODO(), pr, result.New.ToArray())
 			for user, _ := range result.New {

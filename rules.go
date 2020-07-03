@@ -1,95 +1,114 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
-type Ref struct {
+type Pick struct {
 	Pool  string
 	Count int
 }
 
-type Rule map[string][]Ref
+func (pick *Pick) String() string {
+	return fmt.Sprintf("%v:%v", pick.Pool, pick.Count)
+}
 
-type Rules struct {
-	users Set
-	pools map[string]Set
-	rules map[string]Rule
+func (pick *Pick) UnmarshalJSON(data []byte) error {
+	var raw string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	items := strings.Split(raw, ":")
+	pick.Pool = items[0]
+
+	pick.Count = 1
+	if len(items) > 1 {
+		if val, err := strconv.ParseInt(items[1], 10, 64); err != nil {
+			Fatal("malformed pick '%v': %v", raw, err)
+		} else if val < 1 {
+			Fatal("malformed pick '%v': '%v' must be >= 1", items[1], val)
+		} else {
+			pick.Count = int(val)
+		}
+	}
+
+	return nil
+}
+
+type Rule struct {
+	If   string `json:"if"`
+	Pick []Pick `json:"pick"`
+}
+
+func (rule *Rule) HasIf() bool {
+	return rule.If != ""
+}
+
+type Rules []Rule
+
+type Ruleset struct {
+	users   Set
+	pools   map[string]Set
+	ruleset map[string]Rules
 
 	skipLabels Set
 }
 
-func NewRules(config *Config) *Rules {
-	rules := &Rules{
+func NewRuleset(config *Config) *Ruleset {
+	ruleset := &Ruleset{
 		users:      NewSet(),
 		pools:      make(map[string]Set),
-		rules:      make(map[string]Rule),
+		ruleset:    config.Ruleset,
 		skipLabels: NewSet(config.SkipLabels...),
 	}
 
 	for user, _ := range config.Users {
-		rules.users.Put(user)
+		ruleset.users.Put(user)
 	}
 
 	pools := NewSet()
 
 	for poolName, pool := range config.Pools {
 		set := NewSet(pool...)
-		if diff := set.Difference(rules.users); !diff.Empty() {
+		if diff := set.Difference(ruleset.users); !diff.Empty() {
 			Fatal("unknown users '%v' in pool '%v'", diff, poolName)
 		}
 
 		pools.Put(poolName)
-		rules.pools[poolName] = set
+		ruleset.pools[poolName] = set
 	}
 
-	for ruleName, rawRule := range config.Rules {
-		rule := make(Rule)
-
-		for cond, rawRefs := range rawRule {
-			if cond != "_" && !pools.Test(cond) {
-				Fatal("unknown conditional pool '%v' in rule '%v'", cond, ruleName)
+	for ruleName, rules := range ruleset.ruleset {
+		for _, rule := range rules {
+			if rule.HasIf() && !pools.Test(rule.If) {
+				Fatal("unknown if pool '%v' in rule '%v'", rule.If, ruleName)
 			}
 
-			var refs []Ref
-			for _, ref := range rawRefs {
-				items := strings.Split(ref, ":")
-
-				pool := items[0]
-				if !pools.Test(pool) {
-					Fatal("unknown pool name '%v' in rule '%v'", pool, ruleName)
+			for _, pick := range rule.Pick {
+				if !pools.Test(pick.Pool) {
+					Fatal("unknown pool name '%v' in rule '%v' for condition '%v'",
+						pick.Pool, ruleName, rule.If)
 				}
-
-				count := 1
-				if len(items) > 1 {
-					if val, err := strconv.ParseInt(items[1], 10, 64); err != nil {
-						Fatal("malformed ref '%v' in rule '%v': '%v' is not an int", ref, ruleName, items[1])
-					} else if val < 1 {
-						Fatal("malformed ref '%v' in rule '%v': '%v' is not a valid value", ref, ruleName, val)
-					} else {
-						count = int(val)
-					}
-				}
-
-				refs = append(refs, Ref{pool, count})
 			}
-			rule[cond] = refs
 		}
-		rules.rules[ruleName] = rule
 	}
-	return rules
+
+	return ruleset
 }
 
 type Result struct {
-	New      Set
-	Pending  Set
-	Assigned Set
+	New       Set
+	Pending   Set
+	Assigned  Set
+	Requested Set
 }
 
-func (rules Rules) Apply(ruleName string, pr *PullRequest) Result {
-
-	if !pr.Labels.Intersect(rules.skipLabels).Empty() {
+func (ruleset *Ruleset) Apply(ruleName string, pr *PullRequest) Result {
+	if !pr.Labels.Intersect(ruleset.skipLabels).Empty() {
 		return Result{}
 	}
 
@@ -104,19 +123,24 @@ func (rules Rules) Apply(ruleName string, pr *PullRequest) Result {
 
 	all := pr.ReviewRequests.Union(reviewed)
 
-	for cond, refs := range rules.rules[ruleName] {
-		if cond != "_" && !rules.pools[cond].Test(pr.Author) {
+	for _, rule := range ruleset.ruleset[ruleName] {
+		Debug("if: %v:%v <- %v", rule.If, ruleset.pools[rule.If], pr.Author)
+		if rule.HasIf() && !ruleset.pools[rule.If].Test(pr.Author) {
 			continue
 		}
 
-		for _, ref := range refs {
-			pool := rules.pools[ref.Pool]
+		for _, pick := range rule.Pick {
+			pool := ruleset.pools[pick.Pool]
 
 			active := pool.Intersect(all).Difference(author)
 			assigned := active.Copy()
 
-			if missing := ref.Count - len(active); missing > 0 {
+			Debug("pool: %v", pool)
+			Debug("active: %v", active)
+
+			if missing := pick.Count - len(active); missing > 0 {
 				picked := pool.Difference(active.Union(author)).Pick(missing)
+				Debug("picked: %v", picked)
 				assigned.Add(picked)
 				result.New.Add(picked)
 			}
@@ -127,6 +151,8 @@ func (rules Rules) Apply(ruleName string, pr *PullRequest) Result {
 
 		break
 	}
+
+	result.Requested = pr.ReviewRequests.Difference(result.Assigned)
 
 	return result
 }

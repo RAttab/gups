@@ -23,11 +23,11 @@ type Repo struct {
 }
 
 type Config struct {
-	Users      map[string]string              `json:"github_to_slack_user"`
-	Pools      map[string]Pool                `json:"pools"`
-	Rules      map[string]map[string][]string `json:"rules"`
-	Repos      []Repo                         `json:"repos"`
-	SkipLabels []string                       `json:"skip_pr_labels"`
+	Users      map[string]string `json:"github_to_slack_user"`
+	Pools      map[string]Pool   `json:"pools"`
+	Ruleset    map[string]Rules  `json:"ruleset"`
+	Repos      []Repo            `json:"repos"`
+	SkipLabels []string          `json:"skip_pr_labels"`
 }
 
 func ReadConfig(file string) *Config {
@@ -68,7 +68,7 @@ func ParseConfig(name string, data []byte) *Config {
 
 	for _, repo := range config.Repos {
 		PathToVariables(repo.Path)
-		if _, ok := config.Rules[repo.Rule]; !ok {
+		if _, ok := config.Ruleset[repo.Rule]; !ok {
 			Fatal("unknown rule '%v' in repo '%v'", repo.Rule, repo.Path)
 		}
 
