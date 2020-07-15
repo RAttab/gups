@@ -63,7 +63,12 @@ func main() {
 		for _, pr := range githubClient.QueryPullRequests(context.TODO(), vars) {
 			result := ruleset.Apply(repo.Rule, pr)
 
-			githubClient.RequestReview(context.TODO(), pr, result.New.ToArray(), *dryRun)
+			if !result.New.Empty() {
+				Info("<%v> review request: %v", pr.Number, result.New)
+				requests := pr.ReviewRequests.Union(result.New).ToArray()
+				githubClient.RequestReview(context.TODO(), pr, requests, *dryRun)
+			}
+
 			for user, _ := range result.New {
 				notifs.Add(CategoryAssigned, user, repo.Path, pr)
 			}

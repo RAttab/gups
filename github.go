@@ -293,7 +293,6 @@ func (client GithubClient) RequestReview(
 		UserIDs:       &ids,
 	}
 
-	Info("<%v> review request: %v", pr.Number, users)
 	if dryRun {
 		return
 	}
