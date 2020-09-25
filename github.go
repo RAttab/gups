@@ -61,6 +61,11 @@ func NewAge(ts time.Time) Age {
 	return Age{Delta: time.Now().Sub(ts)}
 }
 
+func NewAgeDelta(from time.Time, to time.Time) Age {
+
+	return Age{Delta: to.Sub(from)}
+}
+
 func (age Age) String() string {
 	if years := age.Delta / (time.Hour * 24 * 365); years >= 1 {
 		return fmt.Sprintf("%vy", int64(years))
@@ -301,4 +306,75 @@ func (client GithubClient) RequestReview(
 		Fatal("unable to request reviews for '%v -> %v' on PR '%v': %v",
 			users, ids, pr.Number, err)
 	}
+}
+
+type PrStats struct {
+	Number int32
+	Author string
+
+	Age      Age
+	Merged   bool
+	Resolved bool
+}
+
+type queryPrStats struct {
+	Repository struct {
+		PullRequests struct {
+			TotalCount githubv4.Int
+			Nodes      []struct {
+				Number githubv4.Int
+				State  githubv4.PullRequestState
+				Author struct {
+					Login githubv4.String
+				}
+
+				CreatedAt githubv4.DateTime
+				ClosedAt  githubv4.DateTime
+				MergedAt  githubv4.DateTime
+			}
+		} `graphql:"pullRequests(last: $prCount)"`
+	} `graphql:"repository(owner: $owner, name: $repo)"`
+}
+
+func (client *GithubClient) QueryPullRequestStats(ctx context.Context, vars Variables) []PrStats {
+	variables := map[string]interface{}{
+		"owner":   githubv4.String(vars.Owner),
+		"repo":    githubv4.String(vars.Repository),
+		"prCount": githubv4.Int(prCount),
+	}
+
+	if false { // DEBUG
+		bytes, _ := json.MarshalIndent(variables, "", "    ")
+		Debug("Vars: %v", string(bytes))
+	}
+
+	var raw queryPrStats
+	if err := client.cast().Query(ctx, &raw, variables); err != nil {
+		Fatal("unable to query github: %v", err)
+		return nil
+	}
+
+	var stats []PrStats
+	for _, pr := range raw.Repository.PullRequests.Nodes {
+		entry := PrStats{
+			Number: int32(pr.Number),
+			Author: string(pr.Author.Login),
+		}
+
+		switch pr.State {
+		case githubv4.PullRequestStateOpen:
+			entry.Age = NewAge(pr.CreatedAt.Time)
+		case githubv4.PullRequestStateClosed:
+			entry.Age = NewAgeDelta(pr.CreatedAt.Time, pr.ClosedAt.Time)
+			entry.Resolved = true
+		case githubv4.PullRequestStateMerged:
+			entry.Age = NewAgeDelta(pr.CreatedAt.Time, pr.MergedAt.Time)
+			entry.Resolved = true
+			entry.Merged = true
+		}
+
+		stats = append(stats, entry)
+	}
+
+	return stats
 }
