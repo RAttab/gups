@@ -12,6 +12,7 @@ import (
 
 var full = flag.Bool("full", false, "notify with full summary")
 var dumpUsers = flag.Bool("dump-users", false, "dumps the slack users and exits")
+var dumpStats = flag.Bool("dump-stats", false, "dump repo stats")
 var dryRun = flag.Bool("dry-run", false, "print slack notifications without sending them")
 
 func main() {
@@ -49,6 +50,11 @@ func main() {
 	githubClient := ConnectGithub()
 	if err != nil {
 		Fatal("unable to connect to slack: %v", err)
+	}
+
+	if *dumpStats {
+		prStats(githubClient, config)
+		return
 	}
 
 	ruleset := NewRuleset(config)
@@ -155,6 +161,82 @@ func stats(notifs UserNotifications) {
 	for _, stat := range NewStats(perUser) {
 		Info("  %2d %v", stat.val, stat.key)
 	}
+}
+
+type dist []float64
+
+func (dist dist) dump(title string) {
+	sort.Float64s(dist)
+
+	count := len(dist)
+	var median, p90, max Age
+	if count > 0 {
+		median = Age{time.Duration(dist[count/2])}
+		p90 = Age{time.Duration(dist[9*(count/10)])}
+		max = Age{time.Duration(dist[count-1])}
+	}
+
+	Info("  (%v) count:%v median:%v p90:%v max:%v",
+		title, count, median, p90, max)
+}
+
+type dists struct {
+	open     dist
+	merged   dist
+	resolved dist
+}
+
+func (dist *dists) add(stats PrStats) {
+	val := float64(stats.Age.Delta)
+
+	if stats.Merged {
+		dist.merged = append(dist.merged, val)
+	}
+	if stats.Resolved {
+		dist.resolved = append(dist.resolved, val)
+	} else {
+		dist.open = append(dist.open, val)
+	}
+}
+
+func (dist *dists) dump(title string) {
+	Info("stats(%v):", title)
+	dist.open.dump("open")
+	dist.merged.dump("merged")
+	dist.resolved.dump("resolved")
+}
+
+func prStats(client *GithubClient, config *Config) {
+	total := dists{}
+	authors := make(map[string]*dists)
+
+	for index, repo := range config.Repos {
+		Info("[%v/%v] processing %v...", index+1, len(config.Repos), repo.Path)
+
+		rep := dists{}
+
+		vars := PathToVariables(repo.Path)
+		prs := client.QueryPullRequestStats(context.TODO(), vars)
+		for _, pr := range prs {
+			rep.add(pr)
+			total.add(pr)
+
+			if dist, ok := authors[pr.Author]; ok {
+				dist.add(pr)
+			} else {
+				dist := &dists{}
+				dist.add(pr)
+				authors[pr.Author] = dist
+			}
+		}
+
+		rep.dump(repo.Path)
+	}
+
+	for author, dist := range authors {
+		dist.dump(author)
+	}
+	total.dump("total")
 }
 
 func Fatal(fmt string, args ...interface{}) {
